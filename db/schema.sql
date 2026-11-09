@@ -1,0 +1,10 @@
+CREATE TABLE produk (
+    id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+    nama       VARCHAR(100) NOT NULL,
+    harga      INT NOT NULL DEFAULT 0,
+    stok       INT NOT NULL DEFAULT 0,
+    keterangan TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL,
+    deleted_at TIMESTAMP NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

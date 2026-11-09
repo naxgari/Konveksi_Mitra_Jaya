@@ -1,0 +1,32 @@
+{{define "content"}}
+    <div class="page-head clearfix">
+        <h3 class="float-left">Detail Produk</h3>
+        <a href="/produk" class="btn float-right">Kembali</a>
+    </div>
+    <table class="table">
+        <tr>
+            <th width="25%">ID</th>
+            <td>{{.ID}}</td>
+        </tr>
+        <tr>
+            <th>Nama Produk</th>
+            <td>{{.Name}}</td>
+        </tr>
+        <tr>
+            <th>Harga</th>
+            <td>{{rupiah .Price}}</td>
+        </tr>
+        <tr>
+            <th>Stok</th>
+            <td>{{.Stok}}</td>
+        </tr>
+        <tr>
+            <th>Keterangan</th>
+            <td>{{.Ket}}</td>
+        </tr>
+        <tr>
+            <th>Waktu Dibuat</th>
+            <td>{{.CreatedAt.Format "2-Jan-2006 15:04"}}</td>
+        </tr>
+    </table>
+{{end}}

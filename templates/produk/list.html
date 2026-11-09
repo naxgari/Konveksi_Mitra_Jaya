@@ -1,0 +1,40 @@
+{{define "content"}}
+    <div class="page-head clearfix">
+        <h3 class="float-left">Daftar Produk</h3>
+        <a href="/produk/form" class="btn float-right">+ Tambah Produk</a>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th width="50px">ID</th>
+                <th>Nama Produk</th>
+                <th class="num">Harga</th>
+                <th>Stok</th>
+                <th>Keterangan</th>
+                <th>Created At</th>
+                <th>Aksi</th>
+            </tr>
+        </thead>
+        <tbody>
+        {{range .}}
+            <tr>
+                <td>{{.ID}}</td>
+                <td><a href="/produk/{{.ID}}">{{.Name}}</a></td>
+                <td class="num">{{rupiah .Price}}</td>
+                <td>{{.Stok}}</td>
+                <td>{{.Ket}}</td>
+                <td>{{.CreatedAt.Format "Monday, 2 Jan 2006 (15:04) MST"}}</td>
+                <td>
+                    <div class="actions">
+                        <a href="/produk/{{.ID}}/edit" class="btn btn-light btn-sm">Edit</a>
+                        <form method="POST" action="/produk/{{.ID}}/hapus"
+                            onsubmit="return confirm('Hapus produk ini?')">
+                            <button class="btn btn-danger btn-sm">Hapus</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+        {{end}}
+        </tbody>
+    </table>
+{{end}}

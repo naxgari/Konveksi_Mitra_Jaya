@@ -1,0 +1,34 @@
+{{define "content"}}
+    <div class="page-head clearfix">
+        <h3 class="float-left">{{.Judul}}</h3>
+        <a href="/produk" class="btn btn-light float-right">&larr; Kembali</a>
+    </div>
+
+    <form class="form" method="post" action="{{.Action}}">
+        <div class="form-group">
+            <label for="name">Nama Produk</label>
+            <input type="text" value="{{.Produk.Name}}" id="name" name="name" class="form-control" placeholder="Contoh: Iphone Duo" required>
+        </div>
+
+        <div class="form-group">
+            <label for="price">Harga</label>
+            <input type="number" value="{{.Produk.Price}}" id="price" name="price" class="form-control" min="0" step="1" placeholder="Contoh: 39000000" required>
+            <p class="form-hint">Isi angka saja, tanpa "Rp" dan titik.</p>
+        </div>
+
+        <div class="form-group">
+            <label for="price">Stok</label>
+            <input type="number" value="{{.Produk.Stok}}" id="stok" name="stok" class="form-control" min="0" step="1" placeholder="" required>
+        </div>
+
+        <div class="form-group">
+            <label for="price">Keterangan</label>
+            <input type="text" value="{{.Produk.Ket}}" id="keterangan" name="keterangan" class="form-control" placeholder="" required>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn">Simpan</button>
+            <a href="/produk" class="btn btn-light">Batal</a>
+        </div>
+    </form>
+{{end}}

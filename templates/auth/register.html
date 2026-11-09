@@ -1,0 +1,58 @@
+{{define "content"}}
+<div class="auth-box">
+    <h3>Registrasi Pengguna Sistem</h3>
+    <p style="color: #64748b; font-size: 14px; margin-bottom: 18px;">
+        Buat akun pengguna untuk Admin Penggajian, Petugas Absensi (Supervisor), atau Pemilik Konveksi.
+    </p>
+
+    {{if .Error}}
+        <div class="alert alert-danger">{{.Error}}</div>
+    {{end}}
+
+    <form method="post" action="/register" class="form form-full">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" class="form-control"
+                   value="{{.Username}}" placeholder="Minimal 4 karakter tanpa spasi" required autofocus>
+        </div>
+
+        <div class="form-group">
+            <label for="nama_lengkap">Nama Lengkap</label>
+            <input type="text" id="nama_lengkap" name="nama_lengkap" class="form-control"
+                   value="{{.NamaLengkap}}" placeholder="Masukkan nama lengkap pengguna" required>
+        </div>
+
+        <div class="form-group">
+            <label for="peran">Peran dalam Sistem (Role)</label>
+            <select id="peran" name="peran" class="form-control" required>
+                <option value="admin" {{if eq .Peran "admin"}}selected{{end}}>Admin Penggajian (admin)</option>
+                <option value="supervisor" {{if eq .Peran "supervisor"}}selected{{end}}>Petugas Absensi / Supervisor Shift (supervisor)</option>
+                <option value="pemilik" {{if eq .Peran "pemilik"}}selected{{end}}>Pemilik Konveksi (pemilik)</option>
+            </select>
+            <div class="form-hint">Petugas Absensi hanya dapat mengelola jadwal shift &amp; absensi tanpa melihat nominal gaji.</div>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" class="form-control"
+                   placeholder="Minimal 8 karakter (kombinasi huruf &amp; angka)" required>
+        </div>
+
+        <div class="form-group">
+            <label for="konfirmasi_password">Konfirmasi Password</label>
+            <input type="password" id="konfirmasi_password" name="konfirmasi_password" class="form-control"
+                   placeholder="Ulangi password yang sama" required>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn">Simpan &amp; Daftar</button>
+            {{if currentUser}}
+                <a href="/" class="btn btn-light">Kembali ke Beranda</a>
+            {{else}}
+                <a href="/login" class="btn btn-light">Sudah Punya Akun? Masuk</a>
+            {{end}}
+        </div>
+    </form>
+</div>
+{{end}}
+

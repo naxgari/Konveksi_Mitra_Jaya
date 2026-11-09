@@ -1,4 +1,20 @@
 {{define "header"}}
-    <span class="brand">Go Class</span>
-    <span class="tagline">Belajar web sederhana dengan Go</span>
+    <a href="/" class="brand">Konveksi Mitra Jaya</a>
+    <span class="tagline">Sistem Penggajian Pekerja Harian &amp; Shift</span>
+
+    {{with currentUser}}
+    <div class="user-bar">
+        <span class="user-name">{{.NamaLengkap}}</span>
+        {{if .AdalahAdmin}}
+            <span class="badge badge-admin">Admin</span>
+        {{else if .AdalahSupervisor}}
+            <span class="badge badge-supervisor">Petugas Absensi</span>
+        {{else if .AdalahPemilik}}
+            <span class="badge badge-pemilik">Pemilik</span>
+        {{end}}
+        <form method="post" action="/logout">
+            <button type="submit" class="btn btn-sm btn-light">Keluar</button>
+        </form>
+    </div>
+    {{end}}
 {{end}}

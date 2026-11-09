@@ -1,6 +1,90 @@
 {{define "content"}}
-    <h3>Profile Page</h3>
-    <p>
-        This is my profile!
-    </p>
+    <div class="page-head clearfix">
+        <h3 class="float-left">Profil Pengguna &amp; Pembagian Modul Kelompok 3</h3>
+    </div>
+
+    <table class="table" style="max-width: 560px; margin-bottom: 28px;">
+        <tbody>
+            <tr>
+                <th style="width: 180px;">Nama Lengkap</th>
+                <td><strong>{{.NamaLengkap}}</strong></td>
+            </tr>
+            <tr>
+                <th>Username</th>
+                <td><code>{{.Username}}</code></td>
+            </tr>
+            <tr>
+                <th>Peran Sistem</th>
+                <td>
+                    {{if .AdalahAdmin}}
+                        <span class="badge badge-admin">{{.LabelPeran}}</span>
+                    {{else if .AdalahSupervisor}}
+                        <span class="badge badge-supervisor">{{.LabelPeran}}</span>
+                    {{else if .AdalahPemilik}}
+                        <span class="badge badge-pemilik">{{.LabelPeran}}</span>
+                    {{end}}
+                </td>
+            </tr>
+            <tr>
+                <th>Akses Menu Penggajian</th>
+                <td>
+                    {{if .BisaAksesGaji}}
+                        <span class="badge badge-success">Diizinkan (Pekerja, Gaji, Kasbon, Koreksi &amp; Laporan)</span>
+                    {{else}}
+                        <span class="badge badge-warning">Dibatasi (Khusus Jadwal Shift &amp; Pencatatan Absensi)</span>
+                    {{end}}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h4>Daftar Anggota Kelompok 3 &amp; Tanggung Jawab Modul</h4>
+    <table class="table">
+        <thead>
+            <tr>
+                <th style="width: 50px;">No</th>
+                <th>Nama Anggota</th>
+                <th>NIM</th>
+                <th>Modul Tanggung Jawab</th>
+                <th>Tabel Database</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>1</td>
+                <td><strong>Muhammad Naufal A.</strong> (Ketua)</td>
+                <td>2404130057</td>
+                <td>Setup Core, Skema SQL, Autentikasi (<code>bcrypt</code> &amp; Sesi), Middleware Role &amp; Layout</td>
+                <td><code>pengguna</code>, <code>sesi</code></td>
+            </tr>
+            <tr>
+                <td>2</td>
+                <td><strong>Cahya Din Ramadhan</strong></td>
+                <td>2404130018</td>
+                <td>Master Pekerja (Harian/Bulanan) &amp; Riwayat Perubahan Upah (AB 02)</td>
+                <td><code>pekerja</code>, <code>riwayat_upah</code></td>
+            </tr>
+            <tr>
+                <td>3</td>
+                <td><strong>Muhammad Falih A.</strong></td>
+                <td>2404130054</td>
+                <td>Master Shift, Jadwal Shift &amp; Pencatatan/Pemeriksaan Absensi (AB 03, AB 06, AB 07)</td>
+                <td><code>shift</code>, <code>jadwal_shift</code>, <code>absensi</code></td>
+            </tr>
+            <tr>
+                <td>4</td>
+                <td><strong>Daffa Azmi Ikhtiar F.</strong></td>
+                <td>2404130059</td>
+                <td>Periode Gaji, Engine Hitung Gaji/Lembur/Prorata, Pembayaran &amp; Tutup Periode (AB 01, AB 04, AB 05, AB 09, AB 10)</td>
+                <td><code>periode_gaji</code>, <code>gaji</code>, <code>detail_gaji</code></td>
+            </tr>
+            <tr>
+                <td>5</td>
+                <td><strong>Adel Bin Faris Abdat</strong></td>
+                <td>2404130169</td>
+                <td>Kasbon Pekerja (FIFO Maks. 30%), Koreksi Antarperiode, Slip Gaji &amp; Rekap Periode (AB 08, AB 11)</td>
+                <td><code>kasbon</code>, <code>potongan_kasbon</code>, <code>koreksi_gaji</code></td>
+            </tr>
+        </tbody>
+    </table>
 {{end}}

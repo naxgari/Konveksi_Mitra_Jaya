@@ -4,7 +4,7 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Go Class</title>
+        <title>Konveksi Mitra Jaya — Sistem Penggajian</title>
 
         <style>
             * {
@@ -21,7 +21,10 @@
                 line-height: 1.6;
                 color: #2d3436;
                 /* warna kolom sidebar dibuat dari background body agar tingginya selalu penuh */
-                background: linear-gradient(to right, #f5f6f8 220px, #ffffff 220px);
+                background: linear-gradient(to right, #f5f6f8 235px, #ffffff 235px);
+            }
+            body.guest-body {
+                background: #f5f6f8;
             }
             a {
                 color: #2c5282;
@@ -38,10 +41,11 @@
             }
             header .brand {
                 float: left;
-                font-size: 20px;
+                font-size: 19px;
                 font-weight: 600;
                 line-height: 61px;
-                letter-spacing: 0.5px;
+                letter-spacing: 0.4px;
+                color: #ffffff;
             }
             header .tagline {
                 float: left;
@@ -52,29 +56,49 @@
                 line-height: 61px;
                 color: #a0aec0;
             }
+            header .user-bar {
+                float: right;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                height: 61px;
+                font-size: 13px;
+            }
+            header .user-bar .user-name {
+                font-weight: 600;
+                color: #e2e8f0;
+            }
+            header .user-bar form {
+                margin: 0;
+            }
 
             /* ===== Sidebar ===== */
             aside {
                 float: left;
-                width: 220px;
-                padding: 20px 0;
+                width: 235px;
+                padding: 18px 0;
             }
             aside .menu-title {
-                padding: 0 24px 8px;
+                padding: 12px 24px 6px;
                 font-size: 11px;
-                font-weight: 600;
+                font-weight: 700;
                 text-transform: uppercase;
                 letter-spacing: 1px;
                 color: #8a94a6;
             }
+            aside .menu-title:first-child {
+                padding-top: 0;
+            }
             aside ul {
                 list-style: none;
+                margin-bottom: 8px;
             }
             aside li a {
                 display: block;
-                padding: 9px 24px;
+                padding: 8px 24px;
                 border-left: 3px solid transparent;
                 color: #2d3436;
+                font-size: 14px;
             }
             aside li a:hover {
                 background-color: #e9ecf1;
@@ -84,12 +108,17 @@
 
             /* ===== Konten ===== */
             main {
-                /* flow-root: supaya clear/clearfix di dalam konten tidak ikut "clear" float sidebar */
                 display: flow-root;
-                margin-left: 220px;
+                margin-left: 235px;
                 padding: 28px 32px;
-                /* 100vh - tinggi header (64+3) - tinggi footer (48) */
                 min-height: calc(100vh - 115px);
+            }
+            body.guest-body main {
+                margin-left: 0;
+                max-width: 520px;
+                margin-right: auto;
+                margin-left: auto;
+                padding: 40px 20px;
             }
             main h1, main h2, main h3, main h4 {
                 margin-bottom: 12px;
@@ -100,6 +129,114 @@
             }
             main ul, main ol {
                 margin: 0 0 12px 22px;
+            }
+
+            /* ===== Alert & Notifikasi ===== */
+            .alert {
+                padding: 11px 14px;
+                margin-bottom: 16px;
+                border-radius: 4px;
+                border: 1px solid transparent;
+                font-size: 14px;
+            }
+            .alert-danger {
+                background-color: #fdf2f2;
+                border-color: #f5c6cb;
+                color: #9b1c1c;
+            }
+            .alert-success {
+                background-color: #f0fdf4;
+                border-color: #bbf7d0;
+                color: #166534;
+            }
+            .alert-info {
+                background-color: #eff6ff;
+                border-color: #bfdbfe;
+                color: #1e40af;
+            }
+            .alert-warning {
+                background-color: #fffbeb;
+                border-color: #fde68a;
+                color: #92400e;
+            }
+
+            /* ===== Badge Peran & Status ===== */
+            .badge {
+                display: inline-block;
+                padding: 2px 8px;
+                border-radius: 3px;
+                font-size: 11px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.4px;
+            }
+            .badge-admin {
+                background-color: #c9a227;
+                color: #1f2a3a;
+            }
+            .badge-supervisor {
+                background-color: #3182ce;
+                color: #ffffff;
+            }
+            .badge-pemilik {
+                background-color: #2f855a;
+                color: #ffffff;
+            }
+            .badge-success {
+                background-color: #dcfce7;
+                color: #166534;
+            }
+            .badge-warning {
+                background-color: #fef3c7;
+                color: #92400e;
+            }
+            .badge-danger {
+                background-color: #fee2e2;
+                color: #991b1b;
+            }
+
+            /* ===== Kartu Ringkasan Dashboard ===== */
+            .cards {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 16px;
+                margin-bottom: 24px;
+            }
+            .card {
+                padding: 18px 20px;
+                background-color: #ffffff;
+                border: 1px solid #e2e6ea;
+                border-top: 3px solid #1f2a3a;
+                border-radius: 4px;
+            }
+            .card-gold {
+                border-top-color: #c9a227;
+            }
+            .card .card-label {
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+                color: #64748b;
+                margin-bottom: 4px;
+            }
+            .card .card-value {
+                font-size: 26px;
+                font-weight: 700;
+                color: #1f2a3a;
+                line-height: 1.2;
+            }
+            .card .card-sub {
+                margin-top: 6px;
+                font-size: 12px;
+                color: #8a94a6;
+            }
+            .auth-box {
+                background-color: #ffffff;
+                border: 1px solid #e2e6ea;
+                border-top: 4px solid #c9a227;
+                border-radius: 6px;
+                padding: 28px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
             }
 
             /* ===== Tabel: <table class="table"> ===== */
@@ -158,7 +295,6 @@
                 background-color: #f5f6f8;
                 border-color: #d5dae1;
             }
-
             .btn-sm {
                 padding: 4px 10px;
                 font-size: 13px;
@@ -188,6 +324,9 @@
             /* ===== Form: <form class="form"> ===== */
             .form {
                 max-width: 480px;
+            }
+            .form-full {
+                max-width: 100%;
             }
             .form-group {
                 margin-bottom: 16px;
@@ -237,7 +376,6 @@
                 display: table;
                 clear: both;
             }
-            /* baris judul halaman + tombol aksi di atas tabel */
             .page-head {
                 margin-bottom: 16px;
             }
@@ -257,14 +395,29 @@
                 line-height: 48px;
                 text-align: center;
             }
+
+            @media print {
+                header, aside, footer, .no-print {
+                    display: none !important;
+                }
+                body {
+                    background: #ffffff !important;
+                }
+                main {
+                    margin-left: 0 !important;
+                    padding: 0 !important;
+                }
+            }
         </style>
     </head>
 
-    <body>
-        <header>{{template "header" }}</header>
-        <aside>{{template "sidebar"}}</aside>
+    <body {{if not currentUser}}class="guest-body"{{end}}>
+        <header>{{template "header" .}}</header>
+        {{if currentUser}}
+        <aside>{{template "sidebar" .}}</aside>
+        {{end}}
         <main>{{template "content" .}}</main>
-        <footer>{{template "footer"}}</footer>
+        <footer>{{template "footer" .}}</footer>
     </body>
 </html>
 {{end}}

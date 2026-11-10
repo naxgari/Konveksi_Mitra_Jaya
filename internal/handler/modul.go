@@ -60,7 +60,7 @@ func (h *ModulHandler) Tampil(w http.ResponseWriter, r *http.Request) {
 		page.Filter = []string{"Cari pekerja", "Rentang tanggal"}
 		page.Kolom = []string{"Pekerja", "Tanggal ambil", "Jumlah", "Sudah dipotong", "Saldo"}
 		page.Pesan = "Saldo kasbon berkurang setelah pembayaran dicatat."
-		query = `SELECT p.nama,DATE_FORMAT(k.tanggal_pinjam,'%d %b %Y'),CONCAT('Rp',FORMAT(k.jumlah,0,'de_DE')),CONCAT('Rp',FORMAT(COALESCE(paid.total,0),0,'de_DE')),CONCAT('Rp',FORMAT(k.jumlah-COALESCE(paid.total,0),0,'de_DE')) FROM kasbon k JOIN pekerja p ON p.id_pekerja=k.id_pekerja LEFT JOIN (SELECT pk.id_kasbon,SUM(pk.jumlah) AS total FROM potongan_kasbon pk JOIN gaji g ON g.id_gaji=pk.id_gaji WHERE g.status_bayar='dibayar' GROUP BY pk.id_kasbon) paid ON paid.id_kasbon=k.id_kasbon ORDER BY k.tanggal_pinjam DESC`
+		query = `SELECT p.nama,DATE_FORMAT(k.tanggal,'%d %b %Y'),CONCAT('Rp',FORMAT(k.jumlah,0,'de_DE')),CONCAT('Rp',FORMAT(COALESCE(paid.total,0),0,'de_DE')),CONCAT('Rp',FORMAT(k.jumlah-COALESCE(paid.total,0),0,'de_DE')) FROM kasbon k JOIN pekerja p ON p.id_pekerja=k.id_pekerja LEFT JOIN (SELECT pk.id_kasbon,SUM(pk.jumlah) AS total FROM potongan_kasbon pk JOIN gaji g ON g.id_gaji=pk.id_gaji WHERE g.status_bayar='dibayar' GROUP BY pk.id_kasbon) paid ON paid.id_kasbon=k.id_kasbon ORDER BY k.tanggal DESC`
 	case "/periode":
 		page.Judul = "Penggajian"
 		page.Subjudul = "Periode dan rincian penggajian"
@@ -68,7 +68,7 @@ func (h *ModulHandler) Tampil(w http.ResponseWriter, r *http.Request) {
 		page.Filter = []string{"Jenis periode", "Periode", "Jenis pekerja"}
 		page.Kolom = []string{"Pekerja", "Jenis", "Pokok", "Lembur", "Potongan", "Koreksi", "Bersih", "Status"}
 		page.Metrik = []ModulMetric{{"Gaji bruto", "—"}, {"Potongan kasbon", "—"}, {"Pembayaran bersih", "—"}}
-		query = `SELECT p.nama,p.jenis_pekerja,CONCAT('Rp',FORMAT(g.gaji_pokok,0,'de_DE')),CONCAT('Rp',FORMAT(g.upah_lembur,0,'de_DE')),CONCAT('Rp',FORMAT(g.potongan_terlambat+g.potongan_kasbon,0,'de_DE')),CONCAT('Rp',FORMAT(g.koreksi_bersih,0,'de_DE')),CONCAT('Rp',FORMAT(g.gaji_bersih,0,'de_DE')),REPLACE(g.status_bayar,'_',' ') FROM gaji g JOIN pekerja p ON p.id_pekerja=g.id_pekerja JOIN periode_gaji pg ON pg.id_periode=g.id_periode ORDER BY pg.tanggal_mulai DESC,p.nama`
+		query = `SELECT p.nama,p.jenis_pekerja,CONCAT('Rp',FORMAT(g.gaji_pokok,0,'de_DE')),CONCAT('Rp',FORMAT(g.total_lembur,0,'de_DE')),CONCAT('Rp',FORMAT(g.potongan_telat+g.total_potongan_kasbon,0,'de_DE')),CONCAT('Rp',FORMAT(g.total_koreksi,0,'de_DE')),CONCAT('Rp',FORMAT(g.gaji_bersih,0,'de_DE')),REPLACE(g.status_bayar,'_',' ') FROM gaji g JOIN pekerja p ON p.id_pekerja=g.id_pekerja JOIN periode_gaji pg ON pg.id_periode=g.id_periode ORDER BY pg.tanggal_awal DESC,p.nama`
 	case "/koreksi":
 		page.Judul = "Koreksi Gaji"
 		page.Subjudul = "Pengajuan dan persetujuan koreksi antarperiode"
@@ -76,14 +76,14 @@ func (h *ModulHandler) Tampil(w http.ResponseWriter, r *http.Request) {
 		page.Filter = []string{"Periode asal", "Periode tujuan", "Pekerja", "Status"}
 		page.Kolom = []string{"Pekerja", "Periode asal", "Periode tujuan", "Selisih", "Alasan", "Status"}
 		page.Pesan = "Koreksi yang diajukan belum masuk perhitungan gaji tujuan."
-		query = `SELECT p.nama,DATE_FORMAT(pa.tanggal_mulai,'%d %b %Y'),COALESCE(DATE_FORMAT(pt.tanggal_mulai,'%d %b %Y'),'—'),CONCAT('Rp',FORMAT(k.nilai_selisih,0,'de_DE')),k.alasan,k.status FROM koreksi_gaji k JOIN gaji ga ON ga.id_gaji=k.id_gaji_asal JOIN pekerja p ON p.id_pekerja=ga.id_pekerja JOIN periode_gaji pa ON pa.id_periode=ga.id_periode LEFT JOIN gaji gt ON gt.id_gaji=k.id_gaji_tujuan LEFT JOIN periode_gaji pt ON pt.id_periode=gt.id_periode ORDER BY k.created_at DESC`
+		query = `SELECT p.nama,DATE_FORMAT(pa.tanggal_awal,'%d %b %Y'),COALESCE(DATE_FORMAT(pt.tanggal_awal,'%d %b %Y'),'—'),CONCAT('Rp',FORMAT(k.nilai_selisih,0,'de_DE')),k.alasan,k.status FROM koreksi_gaji k JOIN gaji ga ON ga.id_gaji=k.id_gaji_asal JOIN pekerja p ON p.id_pekerja=ga.id_pekerja JOIN periode_gaji pa ON pa.id_periode=ga.id_periode LEFT JOIN gaji gt ON gt.id_gaji=k.id_gaji_tujuan LEFT JOIN periode_gaji pt ON pt.id_periode=gt.id_periode ORDER BY k.created_at DESC`
 	case "/laporan/rekap":
 		page.Judul = "Laporan"
 		page.Subjudul = "Rekap biaya gaji dan lembur per periode"
 		page.Filter = []string{"Periode", "Jenis pekerja"}
 		page.Kolom = []string{"Pekerja", "Pokok", "Lembur", "Terlambat", "Kasbon", "Koreksi", "Bruto", "Bersih", "Status"}
 		page.Metrik = []ModulMetric{{"Biaya gaji bruto", "—"}, {"Pembayaran bersih", "—"}}
-		query = `SELECT p.nama,CONCAT('Rp',FORMAT(g.gaji_pokok,0,'de_DE')),CONCAT('Rp',FORMAT(g.upah_lembur,0,'de_DE')),CONCAT('Rp',FORMAT(g.potongan_terlambat,0,'de_DE')),CONCAT('Rp',FORMAT(g.potongan_kasbon,0,'de_DE')),CONCAT('Rp',FORMAT(g.koreksi_bersih,0,'de_DE')),CONCAT('Rp',FORMAT(g.gaji_bruto,0,'de_DE')),CONCAT('Rp',FORMAT(g.gaji_bersih,0,'de_DE')),REPLACE(g.status_bayar,'_',' ') FROM gaji g JOIN pekerja p ON p.id_pekerja=g.id_pekerja JOIN periode_gaji pg ON pg.id_periode=g.id_periode ORDER BY pg.tanggal_mulai DESC,p.nama`
+		query = `SELECT p.nama,CONCAT('Rp',FORMAT(g.gaji_pokok,0,'de_DE')),CONCAT('Rp',FORMAT(g.total_lembur,0,'de_DE')),CONCAT('Rp',FORMAT(g.potongan_telat,0,'de_DE')),CONCAT('Rp',FORMAT(g.total_potongan_kasbon,0,'de_DE')),CONCAT('Rp',FORMAT(g.total_koreksi,0,'de_DE')),CONCAT('Rp',FORMAT(g.gaji_bruto,0,'de_DE')),CONCAT('Rp',FORMAT(g.gaji_bersih,0,'de_DE')),REPLACE(g.status_bayar,'_',' ') FROM gaji g JOIN pekerja p ON p.id_pekerja=g.id_pekerja JOIN periode_gaji pg ON pg.id_periode=g.id_periode ORDER BY pg.tanggal_awal DESC,p.nama`
 	default:
 		http.NotFound(w, r)
 		return

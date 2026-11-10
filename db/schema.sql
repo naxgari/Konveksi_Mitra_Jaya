@@ -4,7 +4,7 @@
 -- Engine: MySQL / MariaDB (InnoDB, utf8mb4)
 -- Diselaraskan dengan:
 --   1. plan/Topik Project Akhir Web Programming.md
---   2. plan/Project Persiapan Tahap 1 Kelompok 3_nawaitu.docx (Versi Revisi)
+--   2. plan/Project Persiapan Tahap 1 Kelompok 3_nawaitu.docx (ERD & Subbab 3.3 Kamus Data Ringkas)
 --   3. plan/Planning.md & README.md
 -- =============================================================================
 
@@ -43,13 +43,13 @@ CREATE TABLE produk (
 
 -- =============================================================================
 -- 1. MODUL AUTENTIKASI & HAK AKSES (PENGGUNA & SESI) - Anggota 1 (Naufal)
+-- Kamus Data 3.3: id_pengguna (PK), username, password_hash, peran (ADMIN | PEMILIK)
 -- =============================================================================
 CREATE TABLE pengguna (
     id_pengguna   INT AUTO_INCREMENT PRIMARY KEY,
     username      VARCHAR(50) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     nama_lengkap  VARCHAR(100) NOT NULL,
-    -- Dua peran sesuai rancangan: admin penggajian dan pemilik.
     peran         ENUM('admin', 'pemilik') NOT NULL DEFAULT 'admin',
     aktif         TINYINT(1) NOT NULL DEFAULT 1,
     created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -67,7 +67,10 @@ CREATE TABLE sesi (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================================
--- 2. MODUL MASTER PEKERJA & RIWAYAT UPAH (AB 02) - Anggota 2 (Cahya)
+-- 2. MODUL MASTER PEKERJA & RIWAYAT UPAH (AB 01, AB 02) - Anggota 2 (Cahya)
+-- Kamus Data 3.3:
+--   PEKERJA      : id_pekerja (PK), nama, jenis_pekerja, jabatan, kontak, tanggal_masuk, tanggal_keluar
+--   RIWAYAT_UPAH : id_upah (PK), id_pekerja (FK), berlaku_mulai, nominal
 -- =============================================================================
 CREATE TABLE pekerja (
     id_pekerja     INT AUTO_INCREMENT PRIMARY KEY,
@@ -101,6 +104,10 @@ CREATE TABLE riwayat_upah (
 
 -- =============================================================================
 -- 3. MODUL JADWAL SHIFT & PENCATATAN ABSENSI (AB 03, AB 06, AB 07) - Anggota 3 (Falih)
+-- Kamus Data 3.3:
+--   SHIFT        : id_shift (PK), jam_mulai, jam_selesai (+ nama_shift)
+--   JADWAL_SHIFT : id_jadwal (PK), id_pekerja (FK), id_shift (FK), tanggal
+--   ABSENSI      : id_absensi (PK), id_jadwal (FK, UK), status_kehadiran, jam_masuk, jam_keluar, keterangan
 -- =============================================================================
 CREATE TABLE shift (
     id_shift    INT AUTO_INCREMENT PRIMARY KEY,
@@ -135,7 +142,7 @@ CREATE TABLE absensi (
     jam_keluar       DATETIME DEFAULT NULL,
     menit_terlambat  INT NOT NULL DEFAULT 0,
     menit_lembur     INT NOT NULL DEFAULT 0,
-    catatan          VARCHAR(255) DEFAULT NULL,
+    keterangan       VARCHAR(255) DEFAULT NULL,
     created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_absensi_jadwal
@@ -154,67 +161,77 @@ CREATE TABLE absensi (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================================
--- 4. MODUL PERIODE & ENGINE PERHITUNGAN GAJI (AB 01, AB 04, AB 05, AB 09, AB 10) - Anggota 4 (Daffa)
+-- 4. MODUL PERIODE & ENGINE PERHITUNGAN GAJI (AB 01, AB 04-09, AB 10) - Anggota 4 (Daffa)
+-- Kamus Data 3.3:
+--   PERIODE_GAJI : id_periode (PK), ditutup_oleh (FK), jenis_periode, tanggal_awal,
+--                  tanggal_akhir, tanggal_bayar_rencana, status, ditutup_pada
+--   GAJI         : id_gaji (PK), id_pekerja (FK), id_periode (FK), gaji_pokok, total_lembur,
+--                  potongan_telat, total_potongan_kasbon, total_koreksi, gaji_bruto,
+--                  gaji_bersih, status_bayar, dibayar_pada
+--   DETAIL_GAJI  : id_detail (PK), id_gaji (FK), id_upah (FK), id_absensi (FK, UK opsional),
+--                  tanggal, nominal_upah, tarif_per_jam, nilai_pokok, menit_telat,
+--                  jam_lembur, nilai_lembur, potongan_telat
 -- =============================================================================
 CREATE TABLE periode_gaji (
-    id_periode         INT AUTO_INCREMENT PRIMARY KEY,
-    jenis_periode      ENUM('mingguan', 'bulanan') NOT NULL,
-    tanggal_mulai      DATE NOT NULL,
-    tanggal_akhir      DATE NOT NULL,
-    tanggal_pembayaran DATE NOT NULL,
-    status             ENUM('terbuka', 'tertutup') NOT NULL DEFAULT 'terbuka',
-    ditutup_oleh       INT DEFAULT NULL,
-    waktu_tutup        DATETIME DEFAULT NULL,
-    created_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at         TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
+    id_periode            INT AUTO_INCREMENT PRIMARY KEY,
+    ditutup_oleh          INT DEFAULT NULL,
+    jenis_periode         ENUM('mingguan', 'bulanan') NOT NULL,
+    tanggal_awal          DATE NOT NULL,
+    tanggal_akhir         DATE NOT NULL,
+    tanggal_bayar_rencana DATE NOT NULL,
+    status                ENUM('terbuka', 'tertutup') NOT NULL DEFAULT 'terbuka',
+    ditutup_pada          DATETIME DEFAULT NULL,
+    created_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at            TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_periode_penutup
         FOREIGN KEY (ditutup_oleh) REFERENCES pengguna(id_pengguna)
         ON DELETE SET NULL,
     CONSTRAINT chk_periode_tanggal
-        CHECK (tanggal_akhir >= tanggal_mulai)
+        CHECK (tanggal_akhir >= tanggal_awal)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE gaji (
-    id_gaji            INT AUTO_INCREMENT PRIMARY KEY,
-    id_periode         INT NOT NULL,
-    id_pekerja         INT NOT NULL,
-    gaji_pokok         DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
-    upah_lembur        DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
-    potongan_terlambat DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
-    potongan_kasbon    DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
-    koreksi_bersih     DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
-    gaji_bruto         DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
-    gaji_bersih        DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
-    status_bayar       ENUM('belum_dibayar', 'dibayar') NOT NULL DEFAULT 'belum_dibayar',
-    waktu_bayar        DATETIME DEFAULT NULL,
-    created_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at         TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_gaji_periode
-        FOREIGN KEY (id_periode) REFERENCES periode_gaji(id_periode)
-        ON DELETE RESTRICT,
+    id_gaji               INT AUTO_INCREMENT PRIMARY KEY,
+    id_pekerja            INT NOT NULL,
+    id_periode            INT NOT NULL,
+    gaji_pokok            DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    total_lembur          DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    potongan_telat        DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    total_potongan_kasbon DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    total_koreksi         DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    gaji_bruto            DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    gaji_bersih           DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    status_bayar          ENUM('belum', 'dibayar') NOT NULL DEFAULT 'belum',
+    dibayar_pada          DATETIME DEFAULT NULL,
+    created_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at            TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_gaji_pekerja
         FOREIGN KEY (id_pekerja) REFERENCES pekerja(id_pekerja)
         ON DELETE RESTRICT,
+    CONSTRAINT fk_gaji_periode
+        FOREIGN KEY (id_periode) REFERENCES periode_gaji(id_periode)
+        ON DELETE RESTRICT,
     -- ERD: Satu pekerja memiliki maksimal satu gaji per periode
-    CONSTRAINT uk_gaji_periode_pekerja
-        UNIQUE (id_periode, id_pekerja)
+    CONSTRAINT uk_gaji_pekerja_periode
+        UNIQUE (id_pekerja, id_periode)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE detail_gaji (
-    id_detail           INT AUTO_INCREMENT PRIMARY KEY,
-    id_gaji             INT NOT NULL,
-    id_upah             INT NOT NULL,
-    id_absensi          INT DEFAULT NULL UNIQUE, -- NULL untuk hari bulanan tanpa absensi
-    tanggal             DATE NOT NULL,
-    upah_harian_berlaku DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
-    upah_per_jam        DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
-    nilai_pokok         DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
-    menit_terlambat     INT NOT NULL DEFAULT 0,
-    potongan_hari_ini   DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
-    jam_lembur          DECIMAL(10, 6) NOT NULL DEFAULT 0.00,
-    lembur_hari_ini     DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
-    created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uk_detail_gaji_tanggal UNIQUE (id_gaji, tanggal),
+    id_detail      INT AUTO_INCREMENT PRIMARY KEY,
+    id_gaji        INT NOT NULL,
+    id_upah        INT NOT NULL,
+    id_absensi     INT DEFAULT NULL UNIQUE, -- NULL untuk hari bulanan tanpa absensi
+    tanggal        DATE NOT NULL,
+    nominal_upah   DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    tarif_per_jam  DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    nilai_pokok    DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    menit_telat    INT NOT NULL DEFAULT 0,
+    jam_lembur     DECIMAL(10, 6) NOT NULL DEFAULT 0.00,
+    nilai_lembur   DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    potongan_telat DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_detail_gaji_tanggal
+        UNIQUE (id_gaji, tanggal),
     CONSTRAINT fk_detail_gaji
         FOREIGN KEY (id_gaji) REFERENCES gaji(id_gaji)
         ON DELETE CASCADE,
@@ -228,15 +245,21 @@ CREATE TABLE detail_gaji (
 
 -- =============================================================================
 -- 5. MODUL KASBON & KOREKSI ANTARPERIODE (AB 08, AB 11) - Anggota 5 (Adel)
+-- Kamus Data 3.3:
+--   KASBON          : id_kasbon (PK), id_pekerja (FK), tanggal, jumlah, keterangan
+--   POTONGAN_KASBON : id_potongan (PK), id_gaji (FK), id_kasbon (FK), jumlah
+--   KOREKSI_GAJI    : id_koreksi (PK), id_gaji_asal (FK), id_gaji_tujuan (FK),
+--                     dicatat_oleh (FK), disetujui_oleh (FK opsional), tanggal,
+--                     nilai_selisih, alasan, status, disetujui_pada
 -- =============================================================================
 CREATE TABLE kasbon (
-    id_kasbon       INT AUTO_INCREMENT PRIMARY KEY,
-    id_pekerja      INT NOT NULL,
-    tanggal_pinjam  DATE NOT NULL,
-    jumlah          DECIMAL(15, 2) NOT NULL,
-    keterangan      VARCHAR(255) DEFAULT NULL,
-    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at      TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
+    id_kasbon  INT AUTO_INCREMENT PRIMARY KEY,
+    id_pekerja INT NOT NULL,
+    tanggal    DATE NOT NULL,
+    jumlah     DECIMAL(15, 2) NOT NULL,
+    keterangan VARCHAR(255) DEFAULT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_kasbon_pekerja
         FOREIGN KEY (id_pekerja) REFERENCES pekerja(id_pekerja)
         ON DELETE RESTRICT,
@@ -266,15 +289,17 @@ CREATE TABLE koreksi_gaji (
     id_koreksi     INT AUTO_INCREMENT PRIMARY KEY,
     id_gaji_asal   INT NOT NULL,
     -- id_gaji_tujuan bernilai NULL saat koreksi diajukan/disetujui,
-    -- dan otomatis diisi saat perhitungan gaji periode berikutnya dijalankan (AB 11)
+    -- dan otomatis diisi saat perhitungan gaji periode berikutnya dijalankan (AB 11).
+    -- Validasi id_gaji_asal <> id_gaji_tujuan ditegakkan pada layer service Go
+    -- untuk menghindari konflik MySQL Error 3823 antara CHECK constraint dan FOREIGN KEY.
     id_gaji_tujuan INT DEFAULT NULL,
     dicatat_oleh   INT NOT NULL,
     disetujui_oleh INT DEFAULT NULL,
     tanggal        DATE NOT NULL,
-    disetujui_pada DATETIME DEFAULT NULL,
-    alasan         VARCHAR(255) NOT NULL,
     nilai_selisih  DECIMAL(15, 2) NOT NULL, -- Positif menambah gaji tujuan, negatif mengurangi
+    alasan         VARCHAR(255) NOT NULL,
     status         ENUM('diajukan', 'disetujui', 'diterapkan') NOT NULL DEFAULT 'diajukan',
+    disetujui_pada DATETIME DEFAULT NULL,
     created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_koreksi_gaji_asal
@@ -282,15 +307,13 @@ CREATE TABLE koreksi_gaji (
         ON DELETE RESTRICT,
     CONSTRAINT fk_koreksi_gaji_tujuan
         FOREIGN KEY (id_gaji_tujuan) REFERENCES gaji(id_gaji)
-        ON DELETE RESTRICT,
+        ON DELETE SET NULL,
     CONSTRAINT fk_koreksi_pencatat
         FOREIGN KEY (dicatat_oleh) REFERENCES pengguna(id_pengguna)
         ON DELETE RESTRICT,
     CONSTRAINT fk_koreksi_penyetuju
         FOREIGN KEY (disetujui_oleh) REFERENCES pengguna(id_pengguna)
         ON DELETE SET NULL,
-    CONSTRAINT chk_koreksi_gaji_berbeda
-        CHECK (id_gaji_tujuan IS NULL OR id_gaji_asal <> id_gaji_tujuan),
     CONSTRAINT chk_koreksi_selisih_tidak_nol
         CHECK (nilai_selisih <> 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

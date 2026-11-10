@@ -37,9 +37,7 @@ Sembilan halaman adalah Login, Dashboard, Data Pekerja, Shift dan Jadwal, Absens
 
 ## Struktur data dan kontrak integrasi
 
-`db/schema.sql` menyediakan 12 entitas rancangan (`pengguna`, `pekerja`, `riwayat_upah`, `shift`, `jadwal_shift`, `absensi`, `periode_gaji`, `gaji`, `detail_gaji`, `kasbon`, `potongan_kasbon`, dan `koreksi_gaji`), ditambah `sesi` dan tabel contoh `produk` untuk aplikasi starter. `sesi` dan `produk` bukan entitas tambahan pada ERD rancangan.
-
-Nama implementasi yang berbeda tetapi bermakna sama: `periode_gaji.tanggal_mulai` = tanggal awal, `tanggal_pembayaran` = tanggal bayar rencana, `waktu_tutup` = ditutup pada; `gaji.upah_lembur`, `potongan_terlambat`, `potongan_kasbon`, `koreksi_bersih`, `waktu_bayar` adalah total lembur, potongan telat, total potongan kasbon, total koreksi, dan dibayar pada; `detail_gaji.upah_harian_berlaku`, `upah_per_jam`, `potongan_hari_ini`, `lembur_hari_ini` menyimpan nominal upah, tarif per jam, potongan telat, dan nilai lembur per tanggal; `absensi.catatan` adalah keterangan; `kasbon.tanggal_pinjam` adalah tanggal pengambilan.
+`db/schema.sql` menyediakan 12 entitas rancangan (`pengguna`, `pekerja`, `riwayat_upah`, `shift`, `jadwal_shift`, `absensi`, `periode_gaji`, `gaji`, `detail_gaji`, `kasbon`, `potongan_kasbon`, dan `koreksi_gaji`) dengan penamaan kolom yang selaras langsung dengan Subbab 3.1–3.3 Kamus Data Ringkas pada dokumen `Project Persiapan Tahap 1 Kelompok 3_nawaitu.docx`, ditambah `sesi` dan tabel contoh `produk` untuk aplikasi starter. `sesi` dan `produk` bukan entitas tambahan pada ERD rancangan.
 
 `detail_gaji.id_absensi` boleh kosong untuk rincian bulanan tanpa absensi dan maksimal satu rincian untuk setiap pasangan gaji/tanggal; satu absensi tidak boleh digunakan dua kali. Gaji penyelesaian koreksi dapat tidak memiliki rincian kerja baru. Kolom `perlu_diperiksa` pada status absensi adalah kondisi sementara untuk catatan belum lengkap, bukan hadir terkonfirmasi. `id_gaji_tujuan` dan persetujuan koreksi boleh kosong saat masih dalam proses. Saldo kasbon dihitung dari transaksi yang sudah dibayar, bukan dikurangi pada draf.
 

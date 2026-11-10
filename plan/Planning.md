@@ -3,7 +3,7 @@
 
 Dokumen ini adalah panduan teknis dan taktis lengkap yang menerjemahkan:
 - **Studi Kasus Utama:** `Topik Project Akhir Web Programming.md`
-- **Dokumen Rancangan & ERD:** `plan/Project_ Persiapan Tahap 1_Kelompok 3 (1).md`
+- **Dokumen Rancangan & ERD:** `plan/Project Persiapan Tahap 1 Kelompok 3_nawaitu.docx`
 - **Pembagian Tugas Tim:** `README.md`
 - **Skema Database:** `db/schema.sql`
 

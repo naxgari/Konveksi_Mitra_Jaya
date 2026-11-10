@@ -4,7 +4,7 @@
 -- Engine: MySQL / MariaDB (InnoDB, utf8mb4)
 -- Diselaraskan dengan:
 --   1. plan/Topik Project Akhir Web Programming.md
---   2. plan/Project_ Persiapan Tahap 1_Kelompok 3 (1).md (Versi Revisi)
+--   2. plan/Project Persiapan Tahap 1 Kelompok 3_nawaitu.docx (Versi Revisi)
 --   3. plan/Planning.md & README.md
 -- =============================================================================
 

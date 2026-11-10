@@ -14,7 +14,7 @@ Karena materi kuliah hari ini fokus penuh pada Authentication dan kamu adalah ke
 
    - Template Utama: Merapikan `layout.html`, `sidebar.html`, halaman `/login`, dan `/register`. 
 
-2. Anggota 2 (misal: Cahya Din Ramadhan) — Modul Master Pekerja & Riwayat Upah 
+## 2. Cahya Din Ramadhan — Modul Master Pekerja & Riwayat Upah 
 
 Bertanggung jawab atas data induk pekerja dan pelacakan perubahan gaji mereka (Aturan Bisnis AB 02 ): 
 
@@ -24,7 +24,7 @@ Bertanggung jawab atas data induk pekerja dan pelacakan perubahan gaji mereka (A
 
 - Template HTML: Halaman daftar pekerja, form tambah/edit pekerja, dan halaman detail pekerja yang menampilkan tabel riwayat perubahan upahnya. 
 
-3. Anggota 3 (misal: Muhammad Falih A.) — Modul Jadwal Shift & Pencatatan Absensi 
+## 3. Muhammad Falih A — Modul Jadwal Shift & Pencatatan Absensi 
 
 Bertanggung jawab atas operasional harian yang dikelola Admin dan dapat dibaca oleh Pemilik (Aturan Bisnis AB 03, AB 06, AB 07).
 
@@ -34,7 +34,7 @@ Bertanggung jawab atas operasional harian yang dikelola Admin dan dapat dibaca o
 
    - Template HTML: Halaman kelola jadwal shift, form input absensi harian, dan daftar rekap kehadiran/pemeriksaan absensi. 
 
-4. Anggota 4 (misal: Daffa Azmi Ikhtiar F.) — Modul Periode & Engine Perhitungan Gaji 
+## 4. Daffa Azmi Ikhtiar F. — Modul Periode & Engine Perhitungan Gaji 
 
 Ini adalah modul inti (core engine) yang mengolah data dari modul Pekerja dan Absensi menjadi draf gaji (Aturan Bisnis AB 01, AB 04, AB 05a, AB 05b, AB 09a, AB 09b, AB 10 ): 
 
@@ -44,7 +44,7 @@ Ini adalah modul inti (core engine) yang mengolah data dari modul Pekerja dan Ab
 
 - Template HTML: Halaman daftar periode gaji, halaman rincian perhitungan gaji per periode, dan tampilan draf rincian gaji per tanggal (`DETAIL_GAJI`). 
 
-## 5. Anggota 5 (misal: Adel Bin Faris Abdat) — Modul Kasbon, Koreksi Antarperiode & Laporan/Slip 
+## 5. Adel Bin Faris Abdat — Modul Kasbon, Koreksi Antarperiode & Laporan/Slip 
 
 Bertanggung jawab atas pemotongan pinjaman pekerja, penanganan selisih/kesalahan setelah tutup periode, dan output laporan akhir (Aturan Bisnis AB 08, AB 11 ): 
 

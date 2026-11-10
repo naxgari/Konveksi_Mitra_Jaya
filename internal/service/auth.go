@@ -52,7 +52,7 @@ func (s *AuthService) Register(ctx context.Context, in RegisterInput) (int64, er
 		return 0, &ValidasiError{"Konfirmasi password tidak cocok"}
 	}
 	if !peranValid(peran) {
-		return 0, &ValidasiError{"Peran pengguna tidak valid (pilih: admin, supervisor, atau pemilik)"}
+		return 0, &ValidasiError{"Peran pengguna tidak valid (pilih: admin atau pemilik)"}
 	}
 
 	hashBytes, err := bcrypt.GenerateFromPassword([]byte(in.Password), bcrypt.DefaultCost)
@@ -92,6 +92,10 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (mod
 		return model.Sesi{}, err
 	}
 
+	if !peranValid(u.Peran) {
+		return model.Sesi{}, model.ErrKredensialSalah
+	}
+
 	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)); err != nil {
 		return model.Sesi{}, model.ErrKredensialSalah
 	}
@@ -127,6 +131,9 @@ func (s *AuthService) VerifikasiSesi(ctx context.Context, token string) (model.P
 	if err != nil {
 		return model.Pengguna{}, err
 	}
+	if !peranValid(sesi.Pengguna.Peran) {
+		return model.Pengguna{}, model.ErrSesiTidakValid
+	}
 	return sesi.Pengguna, nil
 }
 
@@ -142,7 +149,7 @@ func (s *AuthService) RingkasanDashboard(ctx context.Context) model.RingkasanDas
 	return s.Repo.AmbilRingkasanDashboard(ctx)
 }
 
-// SeedPenggunaAwal otomatis membuat 3 akun default (admin, supervisor, pemilik) jika tabel pengguna masih kosong.
+// SeedPenggunaAwal otomatis membuat 2 akun default (admin, pemilik) jika tabel pengguna masih kosong.
 func (s *AuthService) SeedPenggunaAwal(ctx context.Context) {
 	jumlah, err := s.Repo.HitungPengguna(ctx)
 	if err != nil {
@@ -165,12 +172,6 @@ func (s *AuthService) SeedPenggunaAwal(ctx context.Context) {
 			NamaLengkap: "Muhammad Naufal A. (Admin Penggajian)",
 			Password:    "password123",
 			Peran:       model.PeranAdmin,
-		},
-		{
-			Username:    "supervisor",
-			NamaLengkap: "Muhammad Falih A. (Petugas Absensi)",
-			Password:    "password123",
-			Peran:       model.PeranSupervisor,
 		},
 		{
 			Username:    "pemilik",
@@ -196,7 +197,7 @@ func (s *AuthService) SeedPenggunaAwal(ctx context.Context) {
 			log.Printf("gagal seed akun %s: %v", ak.Username, err)
 		}
 	}
-	log.Println("seeder: 3 akun awal (admin, supervisor, pemilik) berhasil dibuat dengan password: password123")
+	log.Println("seeder: 2 akun awal (admin, pemilik) berhasil dibuat dengan password: password123")
 }
 
 func validasiPasswordKuat(pw string) error {
@@ -220,7 +221,7 @@ func validasiPasswordKuat(pw string) error {
 }
 
 func peranValid(p model.PeranPengguna) bool {
-	return p == model.PeranAdmin || p == model.PeranSupervisor || p == model.PeranPemilik
+	return p == model.PeranAdmin || p == model.PeranPemilik
 }
 
 func buatTokenAcak() (string, error) {
@@ -230,4 +231,3 @@ func buatTokenAcak() (string, error) {
 	}
 	return hex.EncodeToString(b), nil
 }
-

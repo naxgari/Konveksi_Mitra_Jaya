@@ -2,7 +2,7 @@
 <div class="auth-box">
     <h3>Registrasi Pengguna Sistem</h3>
     <p style="color: #64748b; font-size: 14px; margin-bottom: 18px;">
-        Buat akun pengguna untuk Admin Penggajian, Petugas Absensi (Supervisor), atau Pemilik Konveksi.
+        Buat akun pengguna untuk Admin Penggajian atau Pemilik Konveksi.
     </p>
 
     {{if .Error}}
@@ -26,10 +26,9 @@
             <label for="peran">Peran dalam Sistem (Role)</label>
             <select id="peran" name="peran" class="form-control" required>
                 <option value="admin" {{if eq .Peran "admin"}}selected{{end}}>Admin Penggajian (admin)</option>
-                <option value="supervisor" {{if eq .Peran "supervisor"}}selected{{end}}>Petugas Absensi / Supervisor Shift (supervisor)</option>
                 <option value="pemilik" {{if eq .Peran "pemilik"}}selected{{end}}>Pemilik Konveksi (pemilik)</option>
             </select>
-            <div class="form-hint">Petugas Absensi hanya dapat mengelola jadwal shift &amp; absensi tanpa melihat nominal gaji.</div>
+            <div class="form-hint">Admin mengelola operasional; Pemilik memeriksa dan menyetujui.</div>
         </div>
 
         <div class="form-group">

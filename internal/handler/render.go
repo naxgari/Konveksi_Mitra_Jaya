@@ -79,6 +79,7 @@ type Renderer struct {
 func NewRenderer() *Renderer {
 	halamanWajib := []string{
 		"home.html",
+		"modul.html",
 		"profil.html",
 		"auth/login.html",
 		"auth/register.html",

@@ -1,34 +1,6 @@
-{{define "sidebar"}}
-    {{with currentUser}}
-    <p class="menu-title">Utama</p>
-    <ul>
-        <li><a href="/">Beranda Dashboard</a></li>
-        <li><a href="/profil">Profil &amp; Hak Akses</a></li>
-    </ul>
-
-    <p class="menu-title">Shift &amp; Absensi</p>
-    <ul>
-        <li><a href="/jadwal">Jadwal Shift &amp; Absensi</a></li>
-        <li><a href="/absensi/pemeriksaan">Pemeriksaan Absensi</a></li>
-    </ul>
-
-    {{if .BisaAksesGaji}}
-    <p class="menu-title">Master &amp; Penggajian</p>
-    <ul>
-        <li><a href="/pekerja">Data Pekerja &amp; Upah</a></li>
-        <li><a href="/periode">Periode &amp; Hitung Gaji</a></li>
-        <li><a href="/kasbon">Kasbon Pekerja</a></li>
-        <li><a href="/koreksi">Koreksi Antarperiode</a></li>
-        <li><a href="/laporan/rekap">Rekap Gaji &amp; Lembur</a></li>
-    </ul>
-    {{end}}
-
-    <p class="menu-title">Sistem &amp; Referensi</p>
-    <ul>
-        {{if .BisaAksesGaji}}
-        <li><a href="/register">Tambah Pengguna</a></li>
-        {{end}}
-        <li><a href="/produk">Contoh Modul Produk</a></li>
-    </ul>
-    {{end}}
-{{end}}
+{{define "sidebar"}}{{with currentUser}}
+<div class="brand-name">MJ &nbsp;Mitra Jaya</div><div class="brand-sub">KONVEKSI · PENGGAJIAN</div>
+<div class="menu-caption">MENU UTAMA</div><nav aria-label="Menu utama">
+<a href="/">Dashboard</a>{{if .BisaAksesGaji}}<a href="/pekerja" title="Data Pekerja &amp; Upah">Data Pekerja</a><a href="/jadwal">Shift dan Jadwal</a><a href="/absensi/pemeriksaan">Absensi</a><a href="/kasbon">Kasbon</a><a href="/periode" title="Periode &amp; Hitung Gaji">Penggajian</a><a href="/koreksi">Koreksi Gaji</a><a href="/laporan/rekap">Laporan</a>{{end}}
+</nav><div class="sidebar-bottom"><p>{{.LabelPeran}}</p><p class="sidebar-note">Akun internal Mitra Jaya</p><form method="post" action="/logout"><button class="btn btn-light" type="submit">Keluar</button></form></div>
+{{end}}{{end}}

@@ -49,11 +49,8 @@ CREATE TABLE pengguna (
     username      VARCHAR(50) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     nama_lengkap  VARCHAR(100) NOT NULL,
-    -- 3 Peran konsisten:
-    -- 'admin'      : Admin Penggajian
-    -- 'supervisor' : Petugas Absensi / Supervisor Shift
-    -- 'pemilik'    : Pemilik Konveksi (Owner)
-    peran         ENUM('admin', 'supervisor', 'pemilik') NOT NULL DEFAULT 'admin',
+    -- Dua peran sesuai rancangan: admin penggajian dan pemilik.
+    peran         ENUM('admin', 'pemilik') NOT NULL DEFAULT 'admin',
     aktif         TINYINT(1) NOT NULL DEFAULT 1,
     created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP
@@ -279,7 +276,7 @@ CREATE TABLE koreksi_gaji (
         ON DELETE RESTRICT,
     CONSTRAINT fk_koreksi_gaji_tujuan
         FOREIGN KEY (id_gaji_tujuan) REFERENCES gaji(id_gaji)
-        ON DELETE SET NULL,
+        ON DELETE RESTRICT,
     CONSTRAINT fk_koreksi_pencatat
         FOREIGN KEY (dicatat_oleh) REFERENCES pengguna(id_pengguna)
         ON DELETE RESTRICT,

@@ -50,10 +50,15 @@ func main() {
 	produkSvc := &service.ProdukService{Repo: produkRepo}
 	produk := &handler.ProdukHandler{Svc: produkSvc, View: view}
 
+	modul := &handler.ModulHandler{DB: db, View: view}
+
 	// Private ServeMux: Seluruh route di sini wajib Login (RequireLogin)
 	privateMux := http.NewServeMux()
 	privateMux.HandleFunc("GET /{$}", halaman.Home)
 	privateMux.HandleFunc("GET /profil", halaman.Profil)
+	for _, path := range []string{"/pekerja", "/jadwal", "/absensi/pemeriksaan", "/kasbon", "/periode", "/koreksi", "/laporan/rekap"} {
+		privateMux.HandleFunc("GET "+path, modul.Tampil)
+	}
 	privateMux.HandleFunc("POST /logout", auth.Logout)
 
 	// Route Contoh Produk (Referensi Anggota Tim)

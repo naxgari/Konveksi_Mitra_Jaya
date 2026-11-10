@@ -131,8 +131,8 @@ CREATE TABLE absensi (
     id_absensi       INT AUTO_INCREMENT PRIMARY KEY,
     id_jadwal        INT NOT NULL UNIQUE, -- 1 jadwal maksimal memiliki 1 catatan absensi
     status_kehadiran ENUM('hadir', 'tidak_hadir', 'perlu_diperiksa') NOT NULL DEFAULT 'perlu_diperiksa',
-    jam_masuk        TIME DEFAULT NULL,
-    jam_keluar       TIME DEFAULT NULL,
+    jam_masuk        DATETIME DEFAULT NULL,
+    jam_keluar       DATETIME DEFAULT NULL,
     menit_terlambat  INT NOT NULL DEFAULT 0,
     menit_lembur     INT NOT NULL DEFAULT 0,
     catatan          VARCHAR(255) DEFAULT NULL,
@@ -143,7 +143,12 @@ CREATE TABLE absensi (
         ON DELETE RESTRICT,
     -- AB 03: Jam keluar tidak boleh mendahului jam masuk (tidak ada shift lintas tengah malam)
     CONSTRAINT chk_absensi_jam
-        CHECK (jam_masuk IS NULL OR jam_keluar IS NULL OR jam_keluar >= jam_masuk),
+        CHECK (jam_masuk IS NULL OR jam_keluar IS NULL OR (jam_keluar >= jam_masuk AND DATE(jam_keluar) = DATE(jam_masuk))),
+    -- Catatan belum lengkap disimpan sebagai perlu_diperiksa, bukan hadir terkonfirmasi.
+    CONSTRAINT chk_absensi_status_jam
+        CHECK ((status_kehadiran = 'hadir' AND jam_masuk IS NOT NULL AND jam_keluar IS NOT NULL)
+            OR (status_kehadiran = 'tidak_hadir' AND jam_masuk IS NULL AND jam_keluar IS NULL)
+            OR status_kehadiran = 'perlu_diperiksa'),
     CONSTRAINT chk_absensi_non_negatif
         CHECK (menit_terlambat >= 0 AND menit_lembur >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -199,15 +204,17 @@ CREATE TABLE detail_gaji (
     id_detail           INT AUTO_INCREMENT PRIMARY KEY,
     id_gaji             INT NOT NULL,
     id_upah             INT NOT NULL,
-    id_absensi          INT NOT NULL UNIQUE, -- Menyimpan rincian hari kerja terjadwal (tidak dihitung ganda)
+    id_absensi          INT DEFAULT NULL UNIQUE, -- NULL untuk hari bulanan tanpa absensi
     tanggal             DATE NOT NULL,
     upah_harian_berlaku DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
     upah_per_jam        DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    nilai_pokok         DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
     menit_terlambat     INT NOT NULL DEFAULT 0,
     potongan_hari_ini   DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
-    jam_lembur          DECIMAL(6, 2) NOT NULL DEFAULT 0.00,
+    jam_lembur          DECIMAL(10, 6) NOT NULL DEFAULT 0.00,
     lembur_hari_ini     DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
     created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_detail_gaji_tanggal UNIQUE (id_gaji, tanggal),
     CONSTRAINT fk_detail_gaji
         FOREIGN KEY (id_gaji) REFERENCES gaji(id_gaji)
         ON DELETE CASCADE,
@@ -227,9 +234,6 @@ CREATE TABLE kasbon (
     id_pekerja      INT NOT NULL,
     tanggal_pinjam  DATE NOT NULL,
     jumlah          DECIMAL(15, 2) NOT NULL,
-    total_terpotong DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
-    saldo_sisa      DECIMAL(15, 2) NOT NULL,
-    status          ENUM('aktif', 'lunas') NOT NULL DEFAULT 'aktif',
     keterangan      VARCHAR(255) DEFAULT NULL,
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
@@ -237,7 +241,7 @@ CREATE TABLE kasbon (
         FOREIGN KEY (id_pekerja) REFERENCES pekerja(id_pekerja)
         ON DELETE RESTRICT,
     CONSTRAINT chk_kasbon_jumlah
-        CHECK (jumlah > 0 AND total_terpotong >= 0 AND saldo_sisa >= 0)
+        CHECK (jumlah > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE potongan_kasbon (
@@ -266,6 +270,8 @@ CREATE TABLE koreksi_gaji (
     id_gaji_tujuan INT DEFAULT NULL,
     dicatat_oleh   INT NOT NULL,
     disetujui_oleh INT DEFAULT NULL,
+    tanggal        DATE NOT NULL,
+    disetujui_pada DATETIME DEFAULT NULL,
     alasan         VARCHAR(255) NOT NULL,
     nilai_selisih  DECIMAL(15, 2) NOT NULL, -- Positif menambah gaji tujuan, negatif mengurangi
     status         ENUM('diajukan', 'disetujui', 'diterapkan') NOT NULL DEFAULT 'diajukan',

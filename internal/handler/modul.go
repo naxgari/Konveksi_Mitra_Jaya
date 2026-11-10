@@ -60,7 +60,7 @@ func (h *ModulHandler) Tampil(w http.ResponseWriter, r *http.Request) {
 		page.Filter = []string{"Cari pekerja", "Rentang tanggal"}
 		page.Kolom = []string{"Pekerja", "Tanggal ambil", "Jumlah", "Sudah dipotong", "Saldo"}
 		page.Pesan = "Saldo kasbon berkurang setelah pembayaran dicatat."
-		query = `SELECT p.nama,DATE_FORMAT(k.tanggal_pinjam,'%d %b %Y'),CONCAT('Rp',FORMAT(k.jumlah,0,'de_DE')),CONCAT('Rp',FORMAT(k.total_terpotong,0,'de_DE')),CONCAT('Rp',FORMAT(k.saldo_sisa,0,'de_DE')) FROM kasbon k JOIN pekerja p ON p.id_pekerja=k.id_pekerja ORDER BY k.tanggal_pinjam DESC`
+		query = `SELECT p.nama,DATE_FORMAT(k.tanggal_pinjam,'%d %b %Y'),CONCAT('Rp',FORMAT(k.jumlah,0,'de_DE')),CONCAT('Rp',FORMAT(COALESCE(paid.total,0),0,'de_DE')),CONCAT('Rp',FORMAT(k.jumlah-COALESCE(paid.total,0),0,'de_DE')) FROM kasbon k JOIN pekerja p ON p.id_pekerja=k.id_pekerja LEFT JOIN (SELECT pk.id_kasbon,SUM(pk.jumlah) AS total FROM potongan_kasbon pk JOIN gaji g ON g.id_gaji=pk.id_gaji WHERE g.status_bayar='dibayar' GROUP BY pk.id_kasbon) paid ON paid.id_kasbon=k.id_kasbon ORDER BY k.tanggal_pinjam DESC`
 	case "/periode":
 		page.Judul = "Penggajian"
 		page.Subjudul = "Periode dan rincian penggajian"

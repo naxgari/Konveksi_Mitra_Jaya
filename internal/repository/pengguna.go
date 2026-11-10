@@ -174,9 +174,8 @@ func (r *PenggunaRepo) AmbilRingkasanDashboard(ctx context.Context) model.Ringka
 	).Scan(&d.AbsensiPerluPeriksa)
 
 	_ = r.DB.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM kasbon WHERE status = 'aktif' AND saldo_sisa > 0`,
+		`SELECT COUNT(*) FROM kasbon k LEFT JOIN (SELECT pk.id_kasbon, SUM(pk.jumlah) AS total FROM potongan_kasbon pk JOIN gaji g ON g.id_gaji = pk.id_gaji WHERE g.status_bayar = 'dibayar' GROUP BY pk.id_kasbon) paid ON paid.id_kasbon = k.id_kasbon WHERE k.jumlah > COALESCE(paid.total, 0)`,
 	).Scan(&d.KasbonAktif)
 
 	return d
 }
-

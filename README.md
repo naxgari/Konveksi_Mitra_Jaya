@@ -10,7 +10,7 @@ Karena materi kuliah hari ini fokus penuh pada Authentication dan kamu adalah ke
 
    - Fitur Autentikasi (10 Langkah Dosen): Menggarap tabel `PENGGUNA` & `SESI` (`sessions`), fitur Login, Register (validasi password kuat + hashing `bcrypt` + tangkap error MySQL `1062`), dan Logout. 
 
-   - Middleware & Role Access: Membuat middleware `RequireLogin` (baca token dari Cookie & simpan data user ke `context.WithValue`) serta pembatasan akses sesuai dokumen kalian ( Admin/Pemilik vs Petugas Absensi yang tidak boleh melihat menu gaji). 
+   - Middleware & Role Access: Membuat middleware `RequireLogin` (baca token dari Cookie & simpan data user ke `context.WithValue`) serta pembatasan akses untuk dua peran sesuai dokumen: Admin Penggajian dan Pemilik.
 
    - Template Utama: Merapikan `layout.html`, `sidebar.html`, halaman `/login`, dan `/register`. 
 
@@ -26,7 +26,7 @@ Bertanggung jawab atas data induk pekerja dan pelacakan perubahan gaji mereka (A
 
 3. Anggota 3 (misal: Muhammad Falih A.) — Modul Jadwal Shift & Pencatatan Absensi 
 
-Bertanggung jawab atas operasional harian yang diakses oleh Admin dan Petugas Absensi (Aturan Bisnis AB 03, AB 06, AB 07 ): 
+Bertanggung jawab atas operasional harian yang dikelola Admin dan dapat dibaca oleh Pemilik (Aturan Bisnis AB 03, AB 06, AB 07).
 
    - Tabel yang Diurus: `SHIFT`, `JADWAL_SHIFT`, dan `ABSENSI`. 
 

@@ -3,7 +3,8 @@ package handler
 import (
 	"net/http"
 	"net/http/httptest"
-	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -13,9 +14,11 @@ import (
 
 func TestRendererTemplates(t *testing.T) {
 	// Pindah direktori kerja ke root project agar folder templates/ terbaca saat go test dijalankan
-	if err := os.Chdir("../.."); err != nil {
-		t.Fatalf("chdir root: %v", err)
+	_, testFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("lokasi file test tidak diketahui")
 	}
+	t.Chdir(filepath.Join(filepath.Dir(testFile), "..", ".."))
 
 	rd := NewRenderer()
 
@@ -82,4 +85,3 @@ func TestRendererTemplates(t *testing.T) {
 		t.Errorf("sidebar Petugas Absensi (Supervisor) TIDAK BOLEH menampilkan menu Periode & Hitung Gaji")
 	}
 }
-

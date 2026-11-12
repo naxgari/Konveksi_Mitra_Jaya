@@ -97,6 +97,8 @@ func NewRenderer() *Renderer {
 		"absensi/jadwal_form.html",
 		"absensi/absensi_form.html",
 		"absensi/pemeriksaan.html",
+		"absensi/shift_list.html",
+		"absensi/shift_form.html",
 		"gaji/periode_list.html",
 		"gaji/periode_form.html",
 		"gaji/periode_detail.html",

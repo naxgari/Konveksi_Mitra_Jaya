@@ -12,6 +12,7 @@ import (
 	"github.com/anggyputra/go-class/internal/config"
 	"github.com/anggyputra/go-class/internal/handler"
 	"github.com/anggyputra/go-class/internal/middleware"
+	"github.com/anggyputra/go-class/internal/model"
 	"github.com/anggyputra/go-class/internal/repository"
 	"github.com/anggyputra/go-class/internal/service"
 )
@@ -49,6 +50,9 @@ func main() {
 	produkRepo := &repository.ProdukRepo{DB: db}
 	produkSvc := &service.ProdukService{Repo: produkRepo}
 	produk := &handler.ProdukHandler{Svc: produkSvc, View: view}
+	absensiRepo := &repository.AbsensiRepo{DB: db}
+	absensiSvc := &service.AbsensiService{Repo: absensiRepo}
+	absensi := &handler.AbsensiHandler{Svc: absensiSvc, View: view}
 
 	modul := &handler.ModulHandler{DB: db, View: view}
 
@@ -56,9 +60,25 @@ func main() {
 	privateMux := http.NewServeMux()
 	privateMux.HandleFunc("GET /{$}", halaman.Home)
 	privateMux.HandleFunc("GET /profil", halaman.Profil)
-	for _, path := range []string{"/pekerja", "/jadwal", "/absensi/pemeriksaan", "/kasbon", "/periode", "/koreksi", "/laporan/rekap"} {
+	for _, path := range []string{"/pekerja", "/kasbon", "/periode", "/koreksi", "/laporan/rekap"} {
 		privateMux.HandleFunc("GET "+path, modul.Tampil)
 	}
+	// Modul Shift dan Absensi milik Falih.
+	privateMux.HandleFunc("GET /jadwal", middleware.RequireRole(model.PeranAdmin, model.PeranPemilik)(absensi.JadwalDaftar))
+	privateMux.HandleFunc("GET /jadwal/form", middleware.RequireRole(model.PeranAdmin)(absensi.JadwalFormTambah))
+	privateMux.HandleFunc("POST /jadwal", middleware.RequireRole(model.PeranAdmin)(absensi.JadwalSimpan))
+	privateMux.HandleFunc("GET /jadwal/{id}/edit", middleware.RequireRole(model.PeranAdmin)(absensi.JadwalFormEdit))
+	privateMux.HandleFunc("POST /jadwal/{id}/edit", middleware.RequireRole(model.PeranAdmin)(absensi.JadwalUpdate))
+	privateMux.HandleFunc("POST /jadwal/{id}/hapus", middleware.RequireRole(model.PeranAdmin)(absensi.JadwalHapus))
+	privateMux.HandleFunc("GET /jadwal/{id}/absensi", middleware.RequireRole(model.PeranAdmin)(absensi.AbsensiForm))
+	privateMux.HandleFunc("POST /jadwal/{id}/absensi", middleware.RequireRole(model.PeranAdmin)(absensi.AbsensiSimpan))
+	privateMux.HandleFunc("GET /absensi/pemeriksaan", middleware.RequireRole(model.PeranAdmin, model.PeranPemilik)(absensi.Pemeriksaan))
+	privateMux.HandleFunc("GET /shift", middleware.RequireRole(model.PeranAdmin, model.PeranPemilik)(absensi.ShiftDaftar))
+	privateMux.HandleFunc("GET /shift/form", middleware.RequireRole(model.PeranAdmin)(absensi.ShiftFormTambah))
+	privateMux.HandleFunc("POST /shift", middleware.RequireRole(model.PeranAdmin)(absensi.ShiftSimpan))
+	privateMux.HandleFunc("GET /shift/{id}/edit", middleware.RequireRole(model.PeranAdmin)(absensi.ShiftFormEdit))
+	privateMux.HandleFunc("POST /shift/{id}/edit", middleware.RequireRole(model.PeranAdmin)(absensi.ShiftUpdate))
+	privateMux.HandleFunc("POST /shift/{id}/hapus", middleware.RequireRole(model.PeranAdmin)(absensi.ShiftHapus))
 	privateMux.HandleFunc("POST /logout", auth.Logout)
 
 	// Route Contoh Produk (Referensi Anggota Tim)
@@ -78,7 +98,8 @@ func main() {
 	rootMux.HandleFunc("POST /register", auth.ProsesRegister)
 
 	// Semua route selain /login dan /register diarahkan ke privateMux yang dilindungi RequireLogin
-	rootMux.Handle("/", middleware.RequireLogin(authSvc, cfg.CookieSecure, privateMux))
+	privateProtected := http.NewCrossOriginProtection().Handler(privateMux)
+	rootMux.Handle("/", middleware.RequireLogin(authSvc, cfg.CookieSecure, privateProtected))
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,

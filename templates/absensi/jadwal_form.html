@@ -1,0 +1,7 @@
+{{define "content"}}
+<section class="dashboard"><div class="page-head"><h1>{{.Judul}}</h1><p class="subtitle">{{.Subjudul}}</p></div>{{if .Error}}<p class="notice warning" role="alert">{{.Error}}</p>{{end}}<form class="panel dialog-form" method="post" action="{{.Action}}">
+<label>Pekerja<select class="form-control" name="pekerja" required><option value="">Pilih pekerja</option>{{range .Pekerja}}<option value="{{.ID}}" {{if eq (printf "%d" .ID) $.FormPekerja}}selected{{end}}>{{.Nama}} ({{.Jenis}})</option>{{end}}</select></label>
+<label>Tanggal<input class="form-control" type="date" name="tanggal" value="{{.Tanggal}}" required></label>
+<label>Shift<select class="form-control" name="shift" required><option value="">Pilih shift</option>{{range .Shift}}<option value="{{.ID}}" {{if eq (printf "%d" .ID) $.FormShift}}selected{{end}}>{{.Nama}} · {{.JamMulai}}–{{.JamSelesai}}</option>{{end}}</select></label>
+<div class="dialog-actions"><a class="btn btn-light" href="/jadwal">Batal</a><button class="btn" type="submit">Simpan Jadwal</button></div></form></section>
+{{end}}

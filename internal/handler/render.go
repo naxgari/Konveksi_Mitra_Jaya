@@ -105,6 +105,7 @@ func NewRenderer() *Renderer {
 		"gaji/gaji_detail.html",
 		"kasbon/kasbon_list.html",
 		"kasbon/kasbon_form.html",
+		"kasbon/kasbon_detail.html",
 		"kasbon/koreksi_list.html",
 		"kasbon/koreksi_form.html",
 		"kasbon/slip.html",

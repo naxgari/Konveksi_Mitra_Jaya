@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/anggyputra/go-class/internal/middleware"
 	"github.com/anggyputra/go-class/internal/model"
@@ -83,5 +84,27 @@ func TestRendererTemplates(t *testing.T) {
 	bodySup := recHomeSup.Body.String()
 	if strings.Contains(bodySup, "Periode &amp; Hitung Gaji") {
 		t.Errorf("sidebar Petugas Absensi (Supervisor) TIDAK BOLEH menampilkan menu Periode & Hitung Gaji")
+	}
+
+	pages := []struct {
+		template string
+		data     any
+	}{
+		{"kasbon/kasbon_list.html", KasbonDaftarPage{}},
+		{"kasbon/kasbon_form.html", KasbonFormPage{}},
+		{"kasbon/kasbon_detail.html", KasbonDetailPage{Kasbon: model.Kasbon{Tanggal: time.Now()}}},
+		{"kasbon/koreksi_list.html", KoreksiDaftarPage{}},
+		{"kasbon/koreksi_form.html", KoreksiFormPage{}},
+		{"kasbon/slip.html", model.SlipGaji{}},
+		{"kasbon/rekap.html", RekapPage{}},
+	}
+	for _, page := range pages {
+		t.Run(page.template, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			rd.Tampil(rec, page.template, page.data)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("render %s status = %d, want 200: %s", page.template, rec.Code, rec.Body.String())
+			}
+		})
 	}
 }

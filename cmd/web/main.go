@@ -53,6 +53,9 @@ func main() {
 	absensiRepo := &repository.AbsensiRepo{DB: db}
 	absensiSvc := &service.AbsensiService{Repo: absensiRepo}
 	absensi := &handler.AbsensiHandler{Svc: absensiSvc, View: view}
+	kasbonRepo := &repository.KasbonRepo{DB: db}
+	kasbonSvc := &service.KasbonService{Repo: kasbonRepo}
+	kasbon := &handler.KasbonHandler{Svc: kasbonSvc, View: view}
 
 	modul := &handler.ModulHandler{DB: db, View: view}
 
@@ -60,9 +63,21 @@ func main() {
 	privateMux := http.NewServeMux()
 	privateMux.HandleFunc("GET /{$}", halaman.Home)
 	privateMux.HandleFunc("GET /profil", halaman.Profil)
-	for _, path := range []string{"/pekerja", "/kasbon", "/periode", "/koreksi", "/laporan/rekap"} {
-		privateMux.HandleFunc("GET "+path, modul.Tampil)
-	}
+	privateMux.HandleFunc("GET /pekerja", modul.Tampil)
+	privateMux.HandleFunc("GET /periode", middleware.RequireRole(model.PeranAdmin, model.PeranPemilik)(modul.Tampil))
+	privateMux.HandleFunc("GET /kasbon", middleware.RequireRole(model.PeranAdmin, model.PeranPemilik)(kasbon.Daftar))
+	privateMux.HandleFunc("GET /kasbon/form", middleware.RequireRole(model.PeranAdmin)(kasbon.Form))
+	privateMux.HandleFunc("POST /kasbon", middleware.RequireRole(model.PeranAdmin)(kasbon.Simpan))
+	privateMux.HandleFunc("GET /kasbon/{id}", middleware.RequireRole(model.PeranAdmin, model.PeranPemilik)(kasbon.Detail))
+	privateMux.HandleFunc("POST /kasbon/{id}/hapus", middleware.RequireRole(model.PeranAdmin)(kasbon.Hapus))
+	privateMux.HandleFunc("GET /koreksi", middleware.RequireRole(model.PeranAdmin, model.PeranPemilik)(kasbon.KoreksiDaftar))
+	privateMux.HandleFunc("GET /koreksi/form", middleware.RequireRole(model.PeranAdmin)(kasbon.KoreksiForm))
+	privateMux.HandleFunc("POST /koreksi", middleware.RequireRole(model.PeranAdmin)(kasbon.KoreksiSimpan))
+	privateMux.HandleFunc("POST /koreksi/{id}/setujui", middleware.RequireRole(model.PeranPemilik)(kasbon.KoreksiSetujui))
+	privateMux.HandleFunc("POST /koreksi/{id}/hapus", middleware.RequireRole(model.PeranAdmin)(kasbon.KoreksiHapus))
+	privateMux.HandleFunc("GET /gaji/{id}/slip", middleware.RequireRole(model.PeranAdmin, model.PeranPemilik)(kasbon.Slip))
+	privateMux.HandleFunc("POST /gaji/{id}/hitung-komponen", middleware.RequireRole(model.PeranAdmin)(kasbon.HitungKomponenTambahan))
+	privateMux.HandleFunc("GET /laporan/rekap", middleware.RequireRole(model.PeranAdmin, model.PeranPemilik)(kasbon.Rekap))
 	// Modul Shift dan Absensi milik Falih.
 	privateMux.HandleFunc("GET /jadwal", middleware.RequireRole(model.PeranAdmin, model.PeranPemilik)(absensi.JadwalDaftar))
 	privateMux.HandleFunc("GET /jadwal/form", middleware.RequireRole(model.PeranAdmin)(absensi.JadwalFormTambah))

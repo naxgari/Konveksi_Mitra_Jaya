@@ -1,0 +1,10 @@
+{{define "content"}}
+<div class="dashboard module-page">
+  <p><a href="/kasbon">← Kembali ke kasbon</a></p><h1>Riwayat Kasbon</h1>
+  <div class="summary-card"><strong>{{.Kasbon.NamaPekerja}}</strong><span>{{.Kasbon.JenisPekerja}}</span><span>Tanggal: {{tgl_indo .Kasbon.Tanggal}}</span><span>Jumlah: {{rupiah_float .Kasbon.Jumlah}}</span><span>Sudah dipotong: {{rupiah_float .Kasbon.SudahDipotong}}</span><strong>Sisa saldo: {{rupiah_float .Kasbon.Saldo}}</strong><p>{{.Kasbon.Keterangan}}</p></div>
+  <h2>Rincian pemotongan</h2><div class="table-scroll"><table class="module-table"><thead><tr><th>Periode gaji</th><th>ID gaji</th><th>Jumlah</th><th>Status bayar</th></tr></thead><tbody>
+  {{range .Potongan}}<tr><td>{{.PeriodeLabel}}</td><td><a href="/gaji/{{.IDGaji}}/slip">#{{.IDGaji}}</a></td><td>{{rupiah_float .Jumlah}}</td><td>{{.StatusBayar}}</td></tr>{{else}}<tr><td colspan="4" class="empty-row">Belum pernah dipotong.</td></tr>{{end}}
+  </tbody></table></div>
+</div>
+<style>.summary-card{display:grid;gap:8px;max-width:700px;padding:20px;margin:18px 0;background:#fff;border:1px solid #e2e8f0;border-radius:8px}.summary-card p{margin:0}</style>
+{{end}}

@@ -1,0 +1,98 @@
+
+{{define "content"}}
+<div class="page-head clearfix">
+    <h3 class="float-left">{{.Judul}}</h3>
+    <a href="/pekerja" class="btn btn-light float-right">
+        Kembali
+    </a>
+</div>
+
+<form method="POST" action="{{.Action}}">
+
+    <div class="form-group">
+        <label for="nama">Nama Pekerja</label>
+        <input
+            type="text"
+            id="nama"
+            name="nama"
+            class="form-control"
+            value="{{.Pekerja.Nama}}"
+            maxlength="100"
+            placeholder="Masukkan nama pekerja"
+            required>
+    </div>
+
+    <div class="form-group">
+        <label for="jenis_pekerja">Jenis Pekerja</label>
+        <select
+            id="jenis_pekerja"
+            name="jenis_pekerja"
+            class="form-control"
+            required>
+
+            <option value="">Pilih Jenis Pekerja</option>
+
+            <option value="harian"
+                {{if eq .Pekerja.JenisPekerja "harian"}}
+                selected
+                {{end}}>
+                Harian
+            </option>
+
+            <option value="bulanan"
+                {{if eq .Pekerja.JenisPekerja "bulanan"}}
+                selected
+                {{end}}>
+                Bulanan
+            </option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="jabatan">Jabatan</label>
+        <input
+            type="text"
+            id="jabatan"
+            name="jabatan"
+            class="form-control"
+            value="{{.Pekerja.Jabatan}}"
+            maxlength="100"
+            placeholder="Contoh: Penjahit"
+            required>
+    </div>
+
+    <div class="form-group">
+        <label for="kontak">Kontak</label>
+        <input
+            type="tel"
+            id="kontak"
+            name="kontak"
+            class="form-control"
+            value="{{if .Pekerja.Kontak}}{{.Pekerja.Kontak}}{{end}}"
+            maxlength="50"
+            placeholder="Contoh: 081234567890">
+    </div>
+
+    <div class="form-group">
+        <label for="tanggal_masuk">Tanggal Masuk</label>
+        <input
+            type="date"
+            id="tanggal_masuk"
+            name="tanggal_masuk"
+            class="form-control"
+            value="{{if not .Pekerja.TanggalMasuk.IsZero}}{{.Pekerja.TanggalMasuk.Format "2006-01-02"}}{{end}}"
+            required>
+    </div>
+
+    <div class="form-group">
+        <button type="submit" class="btn">
+            Simpan Data
+        </button>
+
+        <a href="/pekerja" class="btn btn-light">
+            Batal
+        </a>
+    </div>
+
+</form>
+{{end}}

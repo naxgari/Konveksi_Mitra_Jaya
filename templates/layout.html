@@ -441,10 +441,16 @@
             .login-form label { margin-bottom:8px; font-weight:500; }
             .form-control { height:44px; border:1px solid #cbd5e1; border-radius:8px; padding:0 12px; font-size:14px; }
             .form-control:focus { border-color:#4f46e5; box-shadow:0 0 0 3px #e0e7ff; }
-            .btn { min-height:44px; padding:0 16px; border:1px solid #4f46e5; border-radius:8px; background:#4f46e5; font-weight:500; display:inline-flex; align-items:center; justify-content:center; }
+            .btn { min-height:44px; padding:0 16px; border:1px solid #4f46e5; border-radius:8px; background:#4f46e5; color:#ffffff; font-weight:500; display:inline-flex; align-items:center; justify-content:center; }
             .btn:hover { background:#4338ca; border-color:#4338ca; }
             .btn-light { background:white; color:#111827; border-color:#cbd5e1; }
             .btn-light:hover { background:#f6f7fb; border-color:#cbd5e1; }
+            .btn-danger { background:#ffffff; color:#c0392b; border-color:#e3b5b0; }
+            .btn-danger:hover { background:#c0392b; border-color:#c0392b; color:#ffffff; }
+            .btn-sm { min-height:32px; padding:4px 10px; font-size:13px; }
+            textarea.form-control { height:auto; min-height:88px; padding:10px 12px; }
+            .module-table a:not(.btn), .table a:not(.btn) { color:#4f46e5; font-weight:500; }
+            .module-table a:not(.btn):hover, .table a:not(.btn):hover { text-decoration:underline; }
             .password-field { position:relative; }
             .password-field .form-control { padding-right:52px; }
             .password-toggle { position:absolute; top:0; right:0; width:44px; height:44px; display:grid; place-items:center; border:0; border-radius:8px; background:transparent; color:#64748b; cursor:pointer; }
@@ -512,6 +518,13 @@
             .dialog-form label { display:flex; flex-direction:column; gap:8px; font-weight:500; }
             .dialog-actions { display:flex; justify-content:flex-end; gap:12px; }
             .dialog-hint { color:#475569; font-size:12px; margin:0; }
+            @media print {
+              body:not(.guest-body) { display:block !important; background:#ffffff !important; min-height:0 !important; }
+              body:not(.guest-body) header, body:not(.guest-body) aside, body:not(.guest-body) footer, .menu-backdrop, .no-print { display:none !important; }
+              body:not(.guest-body) main { grid-column:auto !important; grid-row:auto !important; margin:0 !important; padding:0 !important; min-height:0 !important; }
+              .module-table { min-width:0 !important; }
+              .module-table th, .module-table td { white-space:normal !important; padding:6px !important; height:auto !important; }
+            }
         </style>
     </head>
 
@@ -522,7 +535,7 @@
         {{end}}
         <main>{{template "content" .}}</main>
         <footer>{{template "footer" .}}</footer>
-        <script>const toggle=document.querySelector(".menu-toggle"), backdrop=document.querySelector(".menu-backdrop");if(toggle){const setMenu=open=>{document.body.classList.toggle("menu-open",open);toggle.setAttribute("aria-expanded",String(open));};toggle.addEventListener("click",()=>setMenu(!document.body.classList.contains("menu-open")));backdrop.addEventListener("click",()=>setMenu(false));document.addEventListener("keydown",e=>{if(e.key==="Escape")setMenu(false);});}const path=location.pathname;document.querySelectorAll("aside nav a").forEach(a=>{const active=a.getAttribute("href")==="/"?path==="/":path.startsWith(a.getAttribute("href"));a.classList.toggle("active",active);if(active)document.getElementById("page-name").textContent=a.textContent;});</script>
+        <script>const toggle=document.querySelector(".menu-toggle"), backdrop=document.querySelector(".menu-backdrop");if(toggle){const setMenu=open=>{document.body.classList.toggle("menu-open",open);toggle.setAttribute("aria-expanded",String(open));};toggle.addEventListener("click",()=>setMenu(!document.body.classList.contains("menu-open")));backdrop.addEventListener("click",()=>setMenu(false));document.addEventListener("keydown",e=>{if(e.key==="Escape")setMenu(false);});}const path=location.pathname;const navMatch=(href)=>href==="/"?path==="/":(path.startsWith(href)||(href==="/jadwal"&&path.startsWith("/shift"))||(href==="/periode"&&path.startsWith("/gaji/")));document.querySelectorAll("aside nav a").forEach(a=>{const active=navMatch(a.getAttribute("href"));a.classList.toggle("active",active);if(active)document.getElementById("page-name").textContent=a.textContent;});if(path.startsWith("/profil")){const pn=document.getElementById("page-name");if(pn)pn.textContent="Profil";}</script>
     </body>
 </html>
 {{end}}

@@ -26,6 +26,7 @@ type PeriodeDetailPage struct {
 	Periode        model.PeriodeGaji
 	Gaji           []model.Gaji
 	Pekerja        []model.PekerjaGaji
+	Error          string
 }
 
 type GajiDetailPage struct {
@@ -33,6 +34,7 @@ type GajiDetailPage struct {
 	Periode model.PeriodeGaji
 	Gaji    model.Gaji
 	Rincian []model.DetailGaji
+	Error   string
 }
 
 type PeriodeFormPage struct {
@@ -69,14 +71,23 @@ func (h *PenggajianHandler) PeriodeDetail(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
+	id, ok := idDariPath(w, r)
+	if !ok {
+		return
+	}
+	h.renderPeriodeDetail(w, r, id, http.StatusOK, "")
+}
+
+func (h *PenggajianHandler) renderPeriodeDetail(
+	w http.ResponseWriter,
+	r *http.Request,
+	id int,
+	status int,
+	pesanError string,
+) {
 	pengguna, _ := middleware.PenggunaDariContext(r.Context())
 	if !pengguna.AdalahAdmin() && !pengguna.AdalahPemilik() {
 		http.Error(w, "Akses ditolak", http.StatusForbidden)
-		return
-	}
-
-	id, ok := idDariPath(w, r)
-	if !ok {
 		return
 	}
 
@@ -102,12 +113,13 @@ func (h *PenggajianHandler) PeriodeDetail(
 		}
 	}
 
-	h.View.Tampil(w, "gaji/periode_detail.html", PeriodeDetailPage{
+	h.View.TampilStatus(w, status, "gaji/periode_detail.html", PeriodeDetailPage{
 		Admin:   pengguna.AdalahAdmin(),
 		Pemilik: pengguna.AdalahPemilik(),
 		Periode: periode,
 		Gaji:    daftar,
 		Pekerja: pekerja,
+		Error:   pesanError,
 	})
 }
 
@@ -115,14 +127,23 @@ func (h *PenggajianHandler) GajiDetail(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
+	id, ok := idDariPath(w, r)
+	if !ok {
+		return
+	}
+	h.renderGajiDetail(w, r, id, http.StatusOK, "")
+}
+
+func (h *PenggajianHandler) renderGajiDetail(
+	w http.ResponseWriter,
+	r *http.Request,
+	id int,
+	status int,
+	pesanError string,
+) {
 	pengguna, _ := middleware.PenggunaDariContext(r.Context())
 	if !pengguna.AdalahAdmin() && !pengguna.AdalahPemilik() {
 		http.Error(w, "Akses ditolak", http.StatusForbidden)
-		return
-	}
-
-	id, ok := idDariPath(w, r)
-	if !ok {
 		return
 	}
 
@@ -144,11 +165,12 @@ func (h *PenggajianHandler) GajiDetail(
 		return
 	}
 
-	h.View.Tampil(w, "gaji/gaji_detail.html", GajiDetailPage{
+	h.View.TampilStatus(w, status, "gaji/gaji_detail.html", GajiDetailPage{
 		Admin:   pengguna.AdalahAdmin(),
 		Periode: periode,
 		Gaji:    gaji,
 		Rincian: rincian,
+		Error:   pesanError,
 	})
 }
 
@@ -195,8 +217,7 @@ func (h *PenggajianHandler) PeriodeSimpan(w http.ResponseWriter, r *http.Request
 
 	if errAwal != nil || errAkhir != nil || errBayar != nil {
 		form.Error = "Semua tanggal wajib diisi dengan tanggal yang valid"
-		w.WriteHeader(http.StatusBadRequest)
-		h.View.Tampil(w, "gaji/periode_form.html", form)
+		h.View.TampilStatus(w, http.StatusBadRequest, "gaji/periode_form.html", form)
 		return
 	}
 
@@ -213,8 +234,7 @@ func (h *PenggajianHandler) PeriodeSimpan(w http.ResponseWriter, r *http.Request
 		}
 
 		form.Error = validasiPesan(err)
-		w.WriteHeader(http.StatusBadRequest)
-		h.View.Tampil(w, "gaji/periode_form.html", form)
+		h.View.TampilStatus(w, http.StatusBadRequest, "gaji/periode_form.html", form)
 		return
 	}
 
@@ -237,13 +257,13 @@ func (h *PenggajianHandler) HitungDraf(
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Form tidak valid", http.StatusBadRequest)
+		h.renderPeriodeDetail(w, r, idPeriode, http.StatusBadRequest, "Form tidak valid")
 		return
 	}
 
 	idPekerja, err := strconv.Atoi(r.PostForm.Get("id_pekerja"))
 	if err != nil || idPekerja <= 0 {
-		http.Error(w, "Pilih pekerja yang valid", http.StatusBadRequest)
+		h.renderPeriodeDetail(w, r, idPeriode, http.StatusBadRequest, "Pilih pekerja yang valid")
 		return
 	}
 
@@ -255,6 +275,10 @@ func (h *PenggajianHandler) HitungDraf(
 		0,
 	)
 	if err != nil {
+		if validasi(err) {
+			h.renderPeriodeDetail(w, r, idPeriode, http.StatusBadRequest, validasiPesan(err))
+			return
+		}
 		gagal(w, err)
 		return
 	}
@@ -295,6 +319,10 @@ func (h *PenggajianHandler) BayarGaji(
 		gaji.IDPekerja,
 		gaji.IDPeriode,
 	); err != nil {
+		if validasi(err) {
+			h.renderGajiDetail(w, r, id, http.StatusBadRequest, validasiPesan(err))
+			return
+		}
 		gagal(w, err)
 		return
 	}
@@ -327,6 +355,10 @@ func (h *PenggajianHandler) TutupPeriode(
 		pengguna,
 		id,
 	); err != nil {
+		if validasi(err) {
+			h.renderPeriodeDetail(w, r, id, http.StatusBadRequest, validasiPesan(err))
+			return
+		}
 		gagal(w, err)
 		return
 	}

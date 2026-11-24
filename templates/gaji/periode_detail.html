@@ -8,6 +8,10 @@
         </p>
     </div>
 
+    {{if .Error}}
+    <p class="notice warning" role="alert">{{.Error}}</p>
+    {{end}}
+
     <div class="quick-links">
         <a class="btn btn-light" href="/periode">
             Kembali ke Daftar Periode
@@ -47,6 +51,12 @@
                 <span class="badge badge-success">Ditutup</span>
             {{end}}
         </div>
+        {{if eq .Periode.Status "tertutup"}}
+        <div class="panel-row">
+            <span>Ditutup oleh</span>
+            <strong>{{if .Periode.DitutupOlehNama}}{{.Periode.DitutupOlehNama}}{{else}}Pemilik{{end}}{{with .Periode.DitutupPada}} · {{tgl_indo .}} {{.Format "15:04"}}{{end}}</strong>
+        </div>
+        {{end}}
     </div>
 
     {{if and .Admin (eq .Periode.Status "terbuka")}}
@@ -72,8 +82,7 @@
             </label>
 
             <p class="dialog-hint">
-                Draf yang belum dibayar dapat dihitung ulang.
-                Perhitungan ini belum memasukkan potongan kasbon dan koreksi.
+                Draf yang belum dibayar dapat dihitung ulang dan otomatis menghitung rencana potongan kasbon (maks. 30% bruto) serta koreksi disetujui.
             </p>
 
             <div class="dialog-actions">
@@ -92,7 +101,7 @@
         <table class="module-table">
             <thead>
                 <tr>
-                    <th>ID Pekerja</th>
+                    <th>Pekerja</th>
                     <th>Gaji Pokok</th>
                     <th>Lembur</th>
                     <th>Potongan Telat</th>
@@ -107,14 +116,14 @@
             <tbody>
                 {{range .Gaji}}
                 <tr>
-                    <td>{{.IDPekerja}}</td>
-                    <td>Rp {{.GajiPokok}}</td>
-                    <td>Rp {{.TotalLembur}}</td>
-                    <td>Rp {{.PotonganTelat}}</td>
-                    <td>Rp {{.TotalPotonganKasbon}}</td>
-                    <td>Rp {{.TotalKoreksi}}</td>
-                    <td>Rp {{.GajiBruto}}</td>
-                    <td><strong>Rp {{.GajiBersih}}</strong></td>
+                    <td>{{if .NamaPekerja}}{{.NamaPekerja}} (#{{.IDPekerja}}){{else}}#{{.IDPekerja}}{{end}}</td>
+                    <td>{{rupiah_upah .GajiPokok}}</td>
+                    <td>{{rupiah_upah .TotalLembur}}</td>
+                    <td>{{rupiah_upah .PotonganTelat}}</td>
+                    <td>{{rupiah_upah .TotalPotonganKasbon}}</td>
+                    <td>{{rupiah_upah .TotalKoreksi}}</td>
+                    <td>{{rupiah_upah .GajiBruto}}</td>
+                    <td><strong>{{rupiah_upah .GajiBersih}}</strong></td>
                     <td>
                         {{if eq .StatusBayar "dibayar"}}
                             <span class="badge badge-success">Dibayar</span>
@@ -123,7 +132,10 @@
                         {{end}}
                     </td>
                     <td>
-                        <a href="/gaji/{{.ID}}">Lihat Detail</a>
+                        <div class="actions">
+                            <a href="/gaji/{{.ID}}">Lihat Detail</a>
+                            <a href="/gaji/{{.ID}}/slip">Slip</a>
+                        </div>
                     </td>
                 </tr>
                 {{else}}

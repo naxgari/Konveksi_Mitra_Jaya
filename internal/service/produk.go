@@ -9,12 +9,6 @@ import (
 	"github.com/anggyputra/go-class/internal/repository"
 )
 
-type ValidasiError struct {
-	Pesan string
-}
-
-func (e *ValidasiError) Error() string { return e.Pesan }
-
 type ProdukService struct {
 	Repo *repository.ProdukRepo
 }

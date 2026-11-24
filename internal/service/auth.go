@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -39,11 +40,20 @@ func (s *AuthService) Register(ctx context.Context, in RegisterInput) (int64, er
 	if len(username) < 4 {
 		return 0, &ValidasiError{"Username minimal harus 4 karakter"}
 	}
+	if len(username) > 50 {
+		return 0, &ValidasiError{"Username maksimal 50 karakter"}
+	}
 	if strings.ContainsAny(username, " \t\n\r") {
 		return 0, &ValidasiError{"Username tidak boleh mengandung spasi"}
 	}
 	if nama == "" {
 		return 0, &ValidasiError{"Nama lengkap wajib diisi"}
+	}
+	if utf8.RuneCountInString(nama) > 100 {
+		return 0, &ValidasiError{"Nama lengkap maksimal 100 karakter"}
+	}
+	if len(in.Password) > 72 {
+		return 0, &ValidasiError{"Password maksimal 72 karakter"}
 	}
 	if err := validasiPasswordKuat(in.Password); err != nil {
 		return 0, err

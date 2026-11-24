@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	mysqldriver "github.com/go-sql-driver/mysql"
 
 	"github.com/anggyputra/go-class/internal/config"
 	"github.com/anggyputra/go-class/internal/handler"
@@ -46,14 +46,6 @@ func main() {
 		AuthSvc: authSvc,
 	}
 
-	// Modul Contoh Bawaan Template (Produk)
-	produkRepo := &repository.ProdukRepo{DB: db}
-	produkSvc := &service.ProdukService{Repo: produkRepo}
-	produk := &handler.ProdukHandler{
-		Svc:  produkSvc,
-		View: view,
-	}
-
 	// =====================================================
 	// 3. Modul Master Pekerja (Cahya)
 	// =====================================================
@@ -89,9 +81,6 @@ func main() {
 	absensiRepo := &repository.AbsensiRepo{DB: db}
 	absensiSvc := &service.AbsensiService{Repo: absensiRepo}
 	absensi := &handler.AbsensiHandler{Svc: absensiSvc, View: view}
-	kasbonRepo := &repository.KasbonRepo{DB: db}
-	kasbonSvc := &service.KasbonService{Repo: kasbonRepo}
-	kasbon := &handler.KasbonHandler{Svc: kasbonSvc, View: view}
 
 	// Modul Penggajian milik Daffa.
 	periodeRepo := &repository.PeriodeGajiRepo{DB: db}
@@ -105,6 +94,10 @@ func main() {
 		GajiSvc:    gajiSvc,
 		View:       view,
 	}
+
+	kasbonRepo := &repository.KasbonRepo{DB: db}
+	kasbonSvc := &service.KasbonService{Repo: kasbonRepo}
+	kasbon := &handler.KasbonHandler{Svc: kasbonSvc, GajiSvc: gajiSvc, View: view}
 
 	// Private ServeMux: Seluruh route di sini wajib Login (RequireLogin)
 	privateMux := http.NewServeMux()
@@ -166,15 +159,6 @@ func main() {
 	privateMux.HandleFunc("POST /gaji/{id}/bayar", middleware.RequireRole(model.PeranAdmin)(penggajian.BayarGaji))
 	privateMux.HandleFunc("POST /logout", auth.Logout)
 
-	// Route Contoh Produk (Referensi Anggota Tim)
-	privateMux.HandleFunc("GET /produk", produk.Daftar)
-	privateMux.HandleFunc("GET /produk/form", produk.FormTambah)
-	privateMux.HandleFunc("POST /produk", produk.Simpan)
-	privateMux.HandleFunc("GET /produk/{id}", produk.Detail)
-	privateMux.HandleFunc("GET /produk/{id}/edit", produk.FormEdit)
-	privateMux.HandleFunc("POST /produk/{id}/edit", produk.Update)
-	privateMux.HandleFunc("POST /produk/{id}/hapus", produk.Hapus)
-
 	// Public & Root ServeMux: Memisahkan route publik (/login, /register) dan route privat
 	rootMux := http.NewServeMux()
 	rootMux.HandleFunc("GET /login", auth.FormLogin)
@@ -183,12 +167,11 @@ func main() {
 	rootMux.HandleFunc("POST /register", auth.ProsesRegister)
 
 	// Semua route selain /login dan /register diarahkan ke privateMux yang dilindungi RequireLogin
-	privateProtected := http.NewCrossOriginProtection().Handler(privateMux)
-	rootMux.Handle("/", middleware.RequireLogin(authSvc, cfg.CookieSecure, privateProtected))
+	rootMux.Handle("/", middleware.RequireLogin(authSvc, cfg.CookieSecure, privateMux))
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           middleware.Logging(rootMux),
+		Handler:           middleware.Logging(http.NewCrossOriginProtection().Handler(rootMux)),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -200,10 +183,22 @@ func main() {
 }
 
 func bukaDB(dsn string) (*sql.DB, error) {
-	db, err := sql.Open("mysql", dsn)
+	cfg, err := mysqldriver.ParseDSN(dsn)
 	if err != nil {
 		return nil, err
 	}
+	cfg.ParseTime = true
+	if cfg.Loc == nil || cfg.Loc == time.UTC {
+		cfg.Loc = time.Local
+	}
+
+	db, err := sql.Open("mysql", cfg.FormatDSN())
+	if err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(10)
+	db.SetConnMaxLifetime(5 * time.Minute)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

@@ -83,6 +83,14 @@ func (s *PeriodeGajiService) Tutup(
 			return err
 		}
 
+		belumDibayar, err := tx.PekerjaBelumDibayar(ctx, idPeriode)
+		if err != nil {
+			return err
+		}
+		if belumDibayar > 0 {
+			return &ValidasiError{Pesan: "Masih ada pekerja pada periode ini yang belum dihitung dan dibayar gajinya"}
+		}
+
 		return tx.Tutup(ctx, idPeriode, penutup.ID)
 	})
 
@@ -221,6 +229,10 @@ func validasiPenutupanPeriode(
 
 	if statusPeriode != "terbuka" {
 		return &ValidasiError{Pesan: "Hanya periode terbuka yang boleh ditutup"}
+	}
+
+	if len(daftarStatusGaji) == 0 {
+		return &ValidasiError{Pesan: "Belum ada data gaji yang dibayar pada periode ini"}
 	}
 
 	for _, status := range daftarStatusGaji {

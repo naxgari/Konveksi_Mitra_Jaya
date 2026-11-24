@@ -424,6 +424,13 @@ func TestValidasiPenutupanPeriode(t *testing.T) {
 			inginErr:   true,
 		},
 		{
+			nama:       "periode kosong tanpa gaji",
+			peran:      model.PeranPemilik,
+			status:     "terbuka",
+			statusGaji: nil,
+			inginErr:   true,
+		},
+		{
 			nama:       "status gaji tidak valid",
 			peran:      model.PeranPemilik,
 			status:     "terbuka",

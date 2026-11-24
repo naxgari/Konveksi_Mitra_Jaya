@@ -2,10 +2,10 @@
 <div class="dashboard module-page">
   <div class="page-heading"><div><h1>Kasbon</h1><p class="subtitle">Pengajuan pinjaman, saldo, dan riwayat pemotongan pekerja.</p></div>{{if .Admin}}<a class="btn" href="/kasbon/form">Catat kasbon</a>{{end}}</div>
   <div class="table-scroll"><table class="module-table"><thead><tr><th>Pekerja</th><th>Jenis</th><th>Tanggal ambil</th><th>Jumlah</th><th>Sudah dipotong</th><th>Saldo</th><th>Keterangan</th><th></th></tr></thead><tbody>
-  {{range .Daftar}}<tr><td>{{.NamaPekerja}}</td><td>{{.JenisPekerja}}</td><td>{{tgl_indo .Tanggal}}</td><td>{{rupiah_float .Jumlah}}</td><td>{{rupiah_float .SudahDipotong}}</td><td><strong>{{rupiah_float .Saldo}}</strong></td><td>{{.Keterangan}}</td><td><a href="/kasbon/{{.ID}}">Riwayat</a>{{if $.Admin}}<form method="post" action="/kasbon/{{.ID}}/hapus" class="inline-form" onsubmit="return confirm('Hapus kasbon ini?')"><button class="text-button" type="submit">Hapus</button></form>{{end}}</td></tr>
-  {{else}}<tr><td colspan="8" class="empty-row">Belum ada pencatatan kasbon.</td></tr>{{end}}
+  {{range .Daftar}}<tr><td>{{.NamaPekerja}}</td><td>{{.JenisPekerja}}</td><td>{{tgl_indo .Tanggal}}</td><td>{{rupiah_float .Jumlah}}</td><td>{{rupiah_float .SudahDipotong}}</td><td><strong>{{rupiah_float .Saldo}}</strong></td><td>{{.Keterangan}}</td><td><a href="/kasbon/{{.ID}}">Riwayat</a>{{if and $.Admin (eq .SudahDipotong 0.0)}}<form method="post" action="/kasbon/{{.ID}}/hapus" class="inline-form" onsubmit="return confirm('Hapus kasbon ini?')"><button class="text-button" type="submit">Hapus</button></form>{{end}}</td></tr>
+  {{else}}<tr class="empty-row"><td colspan="8">Belum ada pencatatan kasbon.</td></tr>{{end}}
   </tbody></table></div>
   <div class="notice">Saldo berkurang hanya setelah potongan pada gaji berstatus dibayar. Gaji draf tidak mengurangi saldo.</div>
 </div>
-<style>.page-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}.inline-form{display:inline;margin-left:10px}.text-button{border:0;background:none;color:#9b1c1c;cursor:pointer;font:inherit}.module-table td,.module-table th{vertical-align:top}</style>
+<style>.page-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:18px}.inline-form{display:inline;margin-left:10px}.text-button{border:0;background:none;color:#9b1c1c;cursor:pointer;font:inherit}.module-table td,.module-table th{vertical-align:top}</style>
 {{end}}

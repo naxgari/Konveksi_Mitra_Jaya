@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -15,6 +16,7 @@ type PekerjaForm struct {
 	Judul   string
 	Action  string
 	Pekerja model.Pekerja
+	Error   string
 }
 
 // PekerjaHandler menangani permintaan HTTP modul pekerja.
@@ -62,11 +64,31 @@ func (h *PekerjaHandler) FormTambah(w http.ResponseWriter, r *http.Request) {
 func (h *PekerjaHandler) Simpan(w http.ResponseWriter, r *http.Request) {
 	p, err := pekerjaDariForm(r)
 	if err != nil {
+		var ve *service.ValidasiError
+		if errors.As(err, &ve) {
+			h.View.TampilStatus(w, http.StatusBadRequest, "pekerja/form.html", PekerjaForm{
+				Judul:   "Form Tambah Data Pekerja",
+				Action:  "/pekerja",
+				Pekerja: p,
+				Error:   ve.Pesan,
+			})
+			return
+		}
 		gagal(w, err)
 		return
 	}
 
 	if _, err := h.Svc.Buat(r.Context(), p); err != nil {
+		var ve *service.ValidasiError
+		if errors.As(err, &ve) {
+			h.View.TampilStatus(w, http.StatusBadRequest, "pekerja/form.html", PekerjaForm{
+				Judul:   "Form Tambah Data Pekerja",
+				Action:  "/pekerja",
+				Pekerja: p,
+				Error:   ve.Pesan,
+			})
+			return
+		}
 		gagal(w, err)
 		return
 	}
@@ -101,15 +123,35 @@ func (h *PekerjaHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	action := fmt.Sprintf("/pekerja/%d/edit", id)
 	p, err := pekerjaDariForm(r)
+	p.ID = id
 	if err != nil {
+		var ve *service.ValidasiError
+		if errors.As(err, &ve) {
+			h.View.TampilStatus(w, http.StatusBadRequest, "pekerja/form.html", PekerjaForm{
+				Judul:   "Form Edit Data Pekerja",
+				Action:  action,
+				Pekerja: p,
+				Error:   ve.Pesan,
+			})
+			return
+		}
 		gagal(w, err)
 		return
 	}
 
-	p.ID = id
-
 	if err := h.Svc.Ubah(r.Context(), p); err != nil {
+		var ve *service.ValidasiError
+		if errors.As(err, &ve) {
+			h.View.TampilStatus(w, http.StatusBadRequest, "pekerja/form.html", PekerjaForm{
+				Judul:   "Form Edit Data Pekerja",
+				Action:  action,
+				Pekerja: p,
+				Error:   ve.Pesan,
+			})
+			return
+		}
 		gagal(w, err)
 		return
 	}

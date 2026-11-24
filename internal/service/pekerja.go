@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/anggyputra/go-class/internal/model"
 	"github.com/anggyputra/go-class/internal/repository"
@@ -88,14 +89,35 @@ func (s *PekerjaService) Nonaktifkan(ctx context.Context, id int, tanggalKeluar 
 		}
 	}
 
-	return s.Repo.Nonaktifkan(ctx, id, tanggalKeluar)
+	p, err := s.Repo.CariByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if p.TanggalKeluar != nil {
+		return &ValidasiError{
+			Pesan: "Pekerja sudah berstatus nonaktif",
+		}
+	}
+	if tanggalKeluar.Format("2006-01-02") < p.TanggalMasuk.Format("2006-01-02") {
+		return &ValidasiError{
+			Pesan: "Tanggal keluar tidak boleh sebelum tanggal masuk",
+		}
+	}
+
+	return errorAturan(s.Repo.Nonaktifkan(ctx, id, tanggalKeluar))
 }
 
 // validasiPekerja memeriksa kelengkapan dan aturan data pekerja.
 func validasiPekerja(p model.Pekerja) error {
-	if strings.TrimSpace(p.Nama) == "" {
+	nama := strings.TrimSpace(p.Nama)
+	if nama == "" {
 		return &ValidasiError{
 			Pesan: "Nama pekerja wajib diisi",
+		}
+	}
+	if utf8.RuneCountInString(nama) > 100 {
+		return &ValidasiError{
+			Pesan: "Nama pekerja maksimal 100 karakter",
 		}
 	}
 
@@ -105,9 +127,21 @@ func validasiPekerja(p model.Pekerja) error {
 		}
 	}
 
-	if strings.TrimSpace(p.Jabatan) == "" {
+	jabatan := strings.TrimSpace(p.Jabatan)
+	if jabatan == "" {
 		return &ValidasiError{
 			Pesan: "Jabatan pekerja wajib diisi",
+		}
+	}
+	if utf8.RuneCountInString(jabatan) > 100 {
+		return &ValidasiError{
+			Pesan: "Jabatan pekerja maksimal 100 karakter",
+		}
+	}
+
+	if p.Kontak != nil && utf8.RuneCountInString(strings.TrimSpace(*p.Kontak)) > 50 {
+		return &ValidasiError{
+			Pesan: "Kontak pekerja maksimal 50 karakter",
 		}
 	}
 

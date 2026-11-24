@@ -61,6 +61,9 @@ func siapkanDataDrafUji(
 			}
 		}
 
+		hapus("DELETE FROM koreksi_gaji WHERE id_gaji_asal IN (SELECT id_gaji FROM gaji WHERE id_pekerja = ?)", idPekerja)
+		hapus("DELETE FROM potongan_kasbon WHERE id_gaji IN (SELECT id_gaji FROM gaji WHERE id_pekerja = ?)", idPekerja)
+		hapus("DELETE FROM kasbon WHERE id_pekerja = ?", idPekerja)
 		hapus("DELETE FROM gaji WHERE id_pekerja = ?", idPekerja)
 		hapus(`DELETE a FROM absensi a
 			JOIN jadwal_shift j ON j.id_jadwal = a.id_jadwal
@@ -471,5 +474,126 @@ func TestBayarGajiMySQL(t *testing.T) {
 	if setelah.DibayarPada == nil ||
 		!setelah.DibayarPada.Equal(*gaji.DibayarPada) {
 		t.Fatal("waktu pembayaran pertama berubah")
+	}
+}
+
+func TestIntegrasiKasbonKoreksiDanPekerjaBerhentiMySQL(t *testing.T) {
+	db := bukaDBDrafUji(t)
+	idPekerja, idPeriode1, _ := siapkanDataDrafUji(t, db)
+	ctx := context.Background()
+
+	// Buat akun admin & pemilik uji.
+	ts := time.Now().UnixNano()
+	resAdm, err := db.Exec(`INSERT INTO pengguna (username, password_hash, nama_lengkap, peran, aktif) VALUES (?, 'h', 'Admin Uji', 'admin', 1)`, fmt.Sprintf("adm-int-%d", ts))
+	if err != nil {
+		t.Fatal(err)
+	}
+	idAdmin, _ := resAdm.LastInsertId()
+	resPem, err := db.Exec(`INSERT INTO pengguna (username, password_hash, nama_lengkap, peran, aktif) VALUES (?, 'h', 'Pemilik Uji', 'pemilik', 1)`, fmt.Sprintf("pem-int-%d", ts))
+	if err != nil {
+		t.Fatal(err)
+	}
+	idPemilik, _ := resPem.LastInsertId()
+
+	resP2, err := db.Exec(`INSERT INTO periode_gaji (jenis_periode, tanggal_awal, tanggal_akhir, tanggal_bayar_rencana) VALUES ('mingguan', '2093-01-12', '2093-01-17', '2093-01-17')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	idPeriode2, _ := resP2.LastInsertId()
+
+	t.Cleanup(func() {
+		db.Exec(`DELETE FROM koreksi_gaji WHERE dicatat_oleh = ?`, idAdmin)
+		db.Exec(`DELETE FROM potongan_kasbon WHERE id_gaji IN (SELECT id_gaji FROM gaji WHERE id_pekerja = ?)`, idPekerja)
+		db.Exec(`DELETE FROM kasbon WHERE id_pekerja = ?`, idPekerja)
+		db.Exec(`DELETE FROM gaji WHERE id_pekerja = ?`, idPekerja)
+		db.Exec(`DELETE FROM periode_gaji WHERE id_periode = ?`, idPeriode2)
+		db.Exec(`DELETE FROM pengguna WHERE id_pengguna IN (?, ?)`, idAdmin, idPemilik)
+	})
+
+	gajiSvc := &GajiService{Repo: &repository.GajiRepo{DB: db}}
+	kasbonSvc := &KasbonService{Repo: &repository.KasbonRepo{DB: db}}
+	periodeSvc := &PeriodeGajiService{Repo: &repository.PeriodeGajiRepo{DB: db}}
+
+	// 1. Tambah kasbon Rp100.000 sebelum akhir periode 1, lalu hitung & bayar periode 1.
+	if _, err := kasbonSvc.KasbonBuat(ctx, model.Kasbon{
+		IDPekerja: idPekerja,
+		Tanggal:   time.Date(2093, 1, 6, 0, 0, 0, 0, time.Local),
+		Jumlah:    100000,
+	}); err != nil {
+		t.Fatalf("buat kasbon: %v", err)
+	}
+
+	idGaji1, err := gajiSvc.HitungDraf(ctx, idPekerja, idPeriode1, 0, 0)
+	if err != nil {
+		t.Fatalf("hitung draf p1: %v", err)
+	}
+	g1, err := gajiSvc.Detail(ctx, int(idGaji1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Bruto = 172.500; 30% bruto = 51.750 -> potongan kasbon = 51.750; bersih = 172.500 - 15.000 - 51.750 = 105.750.
+	if g1.TotalPotonganKasbon != "51750.00" || g1.GajiBersih != "105750.00" {
+		t.Fatalf("potongan kasbon p1 tidak sesuai: %+v", g1)
+	}
+
+	if err := gajiSvc.Bayar(ctx, model.PeranAdmin, idPekerja, idPeriode1); err != nil {
+		t.Fatalf("bayar gaji p1 berkasbon: %v", err)
+	}
+
+	// 2. Nonaktifkan pekerja per 2093-01-10 (berhenti sebelum periode 2), lalu ajukan & setujui koreksi +Rp25.000 dari gaji 1.
+	if _, err := db.Exec(`UPDATE pekerja SET tanggal_keluar = '2093-01-10' WHERE id_pekerja = ?`, idPekerja); err != nil {
+		t.Fatal(err)
+	}
+	idKor, err := kasbonSvc.KoreksiBuat(ctx, model.KoreksiGaji{
+		IDGajiAsal:   int(idGaji1),
+		DicatatOleh:  int(idAdmin),
+		Tanggal:      time.Date(2093, 1, 12, 0, 0, 0, 0, time.Local),
+		NilaiSelisih: 25000,
+		Alasan:       "Kurang bayar lembur",
+	})
+	if err != nil {
+		t.Fatalf("buat koreksi: %v", err)
+	}
+	pemilik := model.Pengguna{ID: idPemilik, Peran: model.PeranPemilik, Aktif: true}
+	if err := kasbonSvc.KoreksiSetujui(ctx, int(idKor), pemilik); err != nil {
+		t.Fatalf("setujui koreksi: %v", err)
+	}
+
+	// 3. Pekerja yang sudah berhenti harus muncul di periode 2, bisa dihitung tanpa pokok baru, dan koreksi diterapkan saat bayar.
+	idGaji2, err := gajiSvc.HitungDraf(ctx, idPekerja, int(idPeriode2), 0, 0)
+	if err != nil {
+		t.Fatalf("hitung draf pekerja berhenti dengan koreksi: %v", err)
+	}
+	g2, err := gajiSvc.Detail(ctx, int(idGaji2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g2.GajiPokok != "0.00" || g2.TotalKoreksi != "25000.00" || g2.GajiBersih != "25000.00" {
+		t.Fatalf("draf koreksi pekerja berhenti tidak sesuai: %+v", g2)
+	}
+
+	// Status koreksi tetap 'disetujui' saat masih draf (AB 11 atomik).
+	var stKor string
+	if err := db.QueryRow(`SELECT status FROM koreksi_gaji WHERE id_koreksi = ?`, idKor).Scan(&stKor); err != nil {
+		t.Fatal(err)
+	}
+	if stKor != "disetujui" {
+		t.Fatalf("status koreksi saat draf = %q, want disetujui", stKor)
+	}
+
+	if err := gajiSvc.Bayar(ctx, model.PeranAdmin, idPekerja, int(idPeriode2)); err != nil {
+		t.Fatalf("bayar gaji koreksi pekerja berhenti: %v", err)
+	}
+
+	var idTujuan int
+	if err := db.QueryRow(`SELECT status, id_gaji_tujuan FROM koreksi_gaji WHERE id_koreksi = ?`, idKor).Scan(&stKor, &idTujuan); err != nil {
+		t.Fatal(err)
+	}
+	if stKor != "diterapkan" || idTujuan != int(idGaji2) {
+		t.Fatalf("koreksi setelah bayar status=%q id_gaji_tujuan=%d, want diterapkan & %d", stKor, idTujuan, idGaji2)
+	}
+
+	if err := periodeSvc.Tutup(ctx, pemilik, int(idPeriode2)); err != nil {
+		t.Fatalf("tutup periode 2: %v", err)
 	}
 }

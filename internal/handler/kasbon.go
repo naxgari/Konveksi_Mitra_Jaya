@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/anggyputra/go-class/internal/middleware"
@@ -11,8 +13,9 @@ import (
 )
 
 type KasbonHandler struct {
-	Svc  *service.KasbonService
-	View *Renderer
+	Svc     *service.KasbonService
+	GajiSvc *service.GajiService
+	View    *Renderer
 }
 
 type KasbonDaftarPage struct {
@@ -21,7 +24,12 @@ type KasbonDaftarPage struct {
 }
 
 type KasbonFormPage struct {
-	Pekerja []model.PekerjaJadwal
+	Pekerja    []model.PekerjaJadwal
+	IDPekerja  string
+	Tanggal    string
+	Jumlah     string
+	Keterangan string
+	Error      string
 }
 
 type KasbonDetailPage struct {
@@ -36,7 +44,17 @@ type KoreksiDaftarPage struct {
 }
 
 type KoreksiFormPage struct {
-	Gaji []model.PilihanGaji
+	Gaji         []model.PilihanGaji
+	IDGajiAsal   string
+	Tanggal      string
+	NilaiSelisih string
+	Alasan       string
+	Error        string
+}
+
+type SlipPage struct {
+	Slip  model.SlipGaji
+	Admin bool
 }
 
 type RekapPage struct {
@@ -66,29 +84,54 @@ func (h *KasbonHandler) Form(w http.ResponseWriter, r *http.Request) {
 	h.View.Tampil(w, "kasbon/kasbon_form.html", KasbonFormPage{Pekerja: pekerja})
 }
 
+func (h *KasbonHandler) renderKasbonFormError(w http.ResponseWriter, r *http.Request, page KasbonFormPage) {
+	pekerja, err := h.Svc.PekerjaPilihan(r.Context())
+	if err != nil {
+		gagal(w, err)
+		return
+	}
+	page.Pekerja = pekerja
+	h.View.TampilStatus(w, http.StatusBadRequest, "kasbon/kasbon_form.html", page)
+}
+
 func (h *KasbonHandler) Simpan(w http.ResponseWriter, r *http.Request) {
-	pekerjaID, err := strconv.Atoi(r.PostFormValue("id_pekerja"))
+	page := KasbonFormPage{
+		IDPekerja:  strings.TrimSpace(r.PostFormValue("id_pekerja")),
+		Tanggal:    strings.TrimSpace(r.PostFormValue("tanggal")),
+		Jumlah:     strings.TrimSpace(r.PostFormValue("jumlah")),
+		Keterangan: strings.TrimSpace(r.PostFormValue("keterangan")),
+	}
+	pekerjaID, err := strconv.Atoi(page.IDPekerja)
 	if err != nil {
-		http.Error(w, "Pekerja tidak valid", http.StatusBadRequest)
+		page.Error = "Pekerja wajib dipilih"
+		h.renderKasbonFormError(w, r, page)
 		return
 	}
-	tanggal, err := time.Parse("2006-01-02", r.PostFormValue("tanggal"))
+	tanggal, err := time.Parse("2006-01-02", page.Tanggal)
 	if err != nil {
-		http.Error(w, "Tanggal tidak valid", http.StatusBadRequest)
+		page.Error = "Tanggal pengambilan tidak valid"
+		h.renderKasbonFormError(w, r, page)
 		return
 	}
-	jumlah, err := strconv.ParseFloat(r.PostFormValue("jumlah"), 64)
+	jumlah, err := strconv.ParseFloat(page.Jumlah, 64)
 	if err != nil {
-		http.Error(w, "Jumlah kasbon tidak valid", http.StatusBadRequest)
+		page.Error = "Jumlah kasbon tidak valid"
+		h.renderKasbonFormError(w, r, page)
 		return
 	}
 	_, err = h.Svc.KasbonBuat(r.Context(), model.Kasbon{
 		IDPekerja:  pekerjaID,
 		Tanggal:    tanggal,
 		Jumlah:     jumlah,
-		Keterangan: r.PostFormValue("keterangan"),
+		Keterangan: page.Keterangan,
 	})
 	if err != nil {
+		var ve *service.ValidasiError
+		if errors.As(err, &ve) {
+			page.Error = ve.Pesan
+			h.renderKasbonFormError(w, r, page)
+			return
+		}
 		gagal(w, err)
 		return
 	}
@@ -143,20 +186,39 @@ func (h *KasbonHandler) KoreksiForm(w http.ResponseWriter, r *http.Request) {
 	h.View.Tampil(w, "kasbon/koreksi_form.html", KoreksiFormPage{Gaji: gaji})
 }
 
+func (h *KasbonHandler) renderKoreksiFormError(w http.ResponseWriter, r *http.Request, page KoreksiFormPage) {
+	gaji, err := h.Svc.GajiDibayarPilihan(r.Context())
+	if err != nil {
+		gagal(w, err)
+		return
+	}
+	page.Gaji = gaji
+	h.View.TampilStatus(w, http.StatusBadRequest, "kasbon/koreksi_form.html", page)
+}
+
 func (h *KasbonHandler) KoreksiSimpan(w http.ResponseWriter, r *http.Request) {
-	idGaji, err := strconv.Atoi(r.PostFormValue("id_gaji_asal"))
+	page := KoreksiFormPage{
+		IDGajiAsal:   strings.TrimSpace(r.PostFormValue("id_gaji_asal")),
+		Tanggal:      strings.TrimSpace(r.PostFormValue("tanggal")),
+		NilaiSelisih: strings.TrimSpace(r.PostFormValue("nilai_selisih")),
+		Alasan:       strings.TrimSpace(r.PostFormValue("alasan")),
+	}
+	idGaji, err := strconv.Atoi(page.IDGajiAsal)
 	if err != nil {
-		http.Error(w, "Gaji asal tidak valid", http.StatusBadRequest)
+		page.Error = "Gaji asal wajib dipilih"
+		h.renderKoreksiFormError(w, r, page)
 		return
 	}
-	tanggal, err := time.Parse("2006-01-02", r.PostFormValue("tanggal"))
+	tanggal, err := time.Parse("2006-01-02", page.Tanggal)
 	if err != nil {
-		http.Error(w, "Tanggal tidak valid", http.StatusBadRequest)
+		page.Error = "Tanggal koreksi tidak valid"
+		h.renderKoreksiFormError(w, r, page)
 		return
 	}
-	selisih, err := strconv.ParseFloat(r.PostFormValue("nilai_selisih"), 64)
+	selisih, err := strconv.ParseFloat(page.NilaiSelisih, 64)
 	if err != nil {
-		http.Error(w, "Nilai selisih tidak valid", http.StatusBadRequest)
+		page.Error = "Nilai selisih tidak valid"
+		h.renderKoreksiFormError(w, r, page)
 		return
 	}
 	u, _ := middleware.PenggunaDariContext(r.Context())
@@ -165,9 +227,15 @@ func (h *KasbonHandler) KoreksiSimpan(w http.ResponseWriter, r *http.Request) {
 		DicatatOleh:  int(u.ID),
 		Tanggal:      tanggal,
 		NilaiSelisih: selisih,
-		Alasan:       r.PostFormValue("alasan"),
+		Alasan:       page.Alasan,
 	})
 	if err != nil {
+		var ve *service.ValidasiError
+		if errors.As(err, &ve) {
+			page.Error = ve.Pesan
+			h.renderKoreksiFormError(w, r, page)
+			return
+		}
 		gagal(w, err)
 		return
 	}
@@ -180,7 +248,7 @@ func (h *KasbonHandler) KoreksiSetujui(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u, _ := middleware.PenggunaDariContext(r.Context())
-	if err := h.Svc.KoreksiSetujui(r.Context(), id, int(u.ID)); err != nil {
+	if err := h.Svc.KoreksiSetujui(r.Context(), id, u); err != nil {
 		gagal(w, err)
 		return
 	}
@@ -209,7 +277,8 @@ func (h *KasbonHandler) Slip(w http.ResponseWriter, r *http.Request) {
 		gagal(w, err)
 		return
 	}
-	h.View.Tampil(w, "kasbon/slip.html", slip)
+	u, _ := middleware.PenggunaDariContext(r.Context())
+	h.View.Tampil(w, "kasbon/slip.html", SlipPage{Slip: slip, Admin: u.AdalahAdmin()})
 }
 
 func (h *KasbonHandler) HitungKomponenTambahan(w http.ResponseWriter, r *http.Request) {
@@ -217,7 +286,17 @@ func (h *KasbonHandler) HitungKomponenTambahan(w http.ResponseWriter, r *http.Re
 	if !ok {
 		return
 	}
-	if _, err := h.Svc.PotongOtomatis(r.Context(), id); err != nil {
+	if h.GajiSvc != nil {
+		g, err := h.GajiSvc.Detail(r.Context(), id)
+		if err != nil {
+			gagal(w, err)
+			return
+		}
+		if _, err := h.GajiSvc.HitungDraf(r.Context(), g.IDPekerja, g.IDPeriode, 0, 0); err != nil {
+			gagal(w, err)
+			return
+		}
+	} else if _, err := h.Svc.PotongOtomatis(r.Context(), id); err != nil {
 		gagal(w, err)
 		return
 	}

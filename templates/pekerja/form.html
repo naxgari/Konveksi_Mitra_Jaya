@@ -7,6 +7,10 @@
     </a>
 </div>
 
+{{if .Error}}
+<div class="alert alert-danger">{{.Error}}</div>
+{{end}}
+
 <form method="POST" action="{{.Action}}">
 
     <div class="form-group">

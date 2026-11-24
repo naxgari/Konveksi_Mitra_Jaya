@@ -140,10 +140,9 @@ func (h *RiwayatUpahHandler) Simpan(
 			// Menampilkan pesan validasi pada formulir.
 			form.PesanError = validasiErr.Pesan
 
-			w.WriteHeader(http.StatusBadRequest)
-
-			h.View.Tampil(
+			h.View.TampilStatus(
 				w,
+				http.StatusBadRequest,
 				"pekerja/upah_form.html",
 				form,
 			)

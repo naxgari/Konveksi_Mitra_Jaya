@@ -14,9 +14,8 @@ var (
 type PeranPengguna string
 
 const (
-	PeranAdmin      PeranPengguna = "admin"      // Admin Penggajian
-	PeranSupervisor PeranPengguna = "supervisor" // Petugas Absensi / Supervisor Shift
-	PeranPemilik    PeranPengguna = "pemilik"    // Pemilik Konveksi (Owner)
+	PeranAdmin   PeranPengguna = "admin"   // Admin Penggajian
+	PeranPemilik PeranPengguna = "pemilik" // Pemilik Konveksi (Owner)
 )
 
 type Pengguna struct {
@@ -33,30 +32,19 @@ func (p Pengguna) AdalahAdmin() bool {
 	return p.Peran == PeranAdmin
 }
 
-func (p Pengguna) AdalahSupervisor() bool {
-	return p.Peran == PeranSupervisor
-}
-
 func (p Pengguna) AdalahPemilik() bool {
 	return p.Peran == PeranPemilik
 }
 
-// BisaAksesGaji mengembalikan true untuk Admin dan Pemilik (Petugas Absensi/Supervisor tidak boleh melihat data gaji).
+// BisaAksesGaji mengembalikan true untuk Admin dan Pemilik.
 func (p Pengguna) BisaAksesGaji() bool {
 	return p.Peran == PeranAdmin || p.Peran == PeranPemilik
-}
-
-// BisaInputAbsensi mengembalikan true untuk Admin dan Petugas Absensi/Supervisor.
-func (p Pengguna) BisaInputAbsensi() bool {
-	return p.Peran == PeranAdmin || p.Peran == PeranSupervisor
 }
 
 func (p Pengguna) LabelPeran() string {
 	switch p.Peran {
 	case PeranAdmin:
 		return "Admin Penggajian"
-	case PeranSupervisor:
-		return "Petugas Absensi (Supervisor)"
 	case PeranPemilik:
 		return "Pemilik Konveksi"
 	default:
@@ -73,11 +61,13 @@ type Sesi struct {
 }
 
 type RingkasanDashboard struct {
-	TotalPekerjaAktif   int
-	PekerjaHarianAktif  int
-	PekerjaBulananAktif int
-	PeriodeTerbuka      int
-	AbsensiPerluPeriksa int
-	KasbonAktif         int
+	TotalPekerjaAktif         int
+	PekerjaHarianAktif        int
+	PekerjaBulananAktif       int
+	PeriodeTerbuka            int
+	AbsensiPerluPeriksa       int
+	KasbonAktif               int
+	TotalGajiPeriodeBerjalan  string
+	TotalSaldoKasbon          string
 }
 

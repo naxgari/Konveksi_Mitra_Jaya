@@ -5,6 +5,8 @@ import "time"
 type Gaji struct {
 	ID                  int
 	IDPekerja           int
+	NamaPekerja         string
+	JenisPekerja        string
 	IDPeriode           int
 	GajiPokok           string
 	TotalLembur         string

@@ -2,6 +2,7 @@ package service
 
 import (
 	"math"
+	"math/big"
 	"reflect"
 	"testing"
 	"time"
@@ -49,10 +50,37 @@ func TestHitungRencanaPotongMenolakNilaiSebelumPotonganNegatif(t *testing.T) {
 
 func TestValidasiKasbonMenolakNominalTidakValid(t *testing.T) {
 	k := model.Kasbon{IDPekerja: 1, Tanggal: time.Now(), Jumlah: 1}
-	for _, jumlah := range []float64{0, -1, 0.001, math.NaN(), math.Inf(1)} {
+	for _, jumlah := range []float64{0, -1, 0.001, math.NaN(), math.Inf(1), 1e14} {
 		k.Jumlah = jumlah
 		if err := validasiKasbon(k); err == nil {
 			t.Errorf("validasiKasbon(Jumlah=%v) tidak menolak nominal", jumlah)
 		}
+	}
+}
+
+func TestHitungAlokasiKasbonIntegrasi(t *testing.T) {
+	// Contoh Ayu di dokumen tahap 1: bruto 772.500, telat 15.000, saldo 300.000 -> batas 30% = 231.750.
+	bruto := big.NewRat(772500, 1)
+	telat := big.NewRat(15000, 1)
+	alokasi, totalSen, negatif := hitungAlokasiKasbon(bruto, telat, 50000_00, []repository.KasbonSaldo{
+		{ID: 1, SaldoSen: 200000_00},
+		{ID: 2, SaldoSen: 100000_00},
+	})
+	if negatif {
+		t.Fatal("seharusnya tidak negatif")
+	}
+	if totalSen != 231750_00 {
+		t.Fatalf("totalSen = %d, want 23175000", totalSen)
+	}
+	if len(alokasi) != 2 || alokasi[0].JumlahSen != 200000_00 || alokasi[1].JumlahSen != 31750_00 {
+		t.Fatalf("alokasi FIFO = %+v", alokasi)
+	}
+
+	// Nilai sebelum kasbon negatif (koreksi negatif besar) harus ditandai sebelumNegatif = true.
+	alokasiNeg, totalNeg, isNeg := hitungAlokasiKasbon(big.NewRat(100000, 1), big.NewRat(0, 1), -150000_00, []repository.KasbonSaldo{
+		{ID: 1, SaldoSen: 50000_00},
+	})
+	if !isNeg || totalNeg != 0 || len(alokasiNeg) != 0 {
+		t.Fatalf("nilai sebelum kasbon negatif seharusnya menahan kasbon: neg=%v total=%d alokasi=%+v", isNeg, totalNeg, alokasiNeg)
 	}
 }

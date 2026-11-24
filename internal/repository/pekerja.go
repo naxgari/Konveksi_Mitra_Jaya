@@ -86,6 +86,13 @@ func (r *PekerjaRepo) CariByID(ctx context.Context, id int) (model.Pekerja, erro
 	return p, nil
 }
 
+func formatTanggalPtr(t *time.Time) any {
+	if t == nil || t.IsZero() {
+		return nil
+	}
+	return t.Format("2006-01-02")
+}
+
 // Tambah menyimpan data pekerja baru ke database.
 func (r *PekerjaRepo) Tambah(ctx context.Context, p model.Pekerja) (int64, error) {
 	res, err := r.DB.ExecContext(ctx,
@@ -96,8 +103,8 @@ func (r *PekerjaRepo) Tambah(ctx context.Context, p model.Pekerja) (int64, error
 		p.JenisPekerja,
 		p.Jabatan,
 		p.Kontak,
-		p.TanggalMasuk,
-		p.TanggalKeluar,
+		p.TanggalMasuk.Format("2006-01-02"),
+		formatTanggalPtr(p.TanggalKeluar),
 	)
 
 	if err != nil {
@@ -128,8 +135,8 @@ func (r *PekerjaRepo) Ubah(ctx context.Context, p model.Pekerja) error {
 		p.JenisPekerja,
 		p.Jabatan,
 		p.Kontak,
-		p.TanggalMasuk,
-		p.TanggalKeluar,
+		p.TanggalMasuk.Format("2006-01-02"),
+		formatTanggalPtr(p.TanggalKeluar),
 		p.ID,
 	)
 
@@ -161,32 +168,12 @@ func (r *PekerjaRepo) Ubah(ctx context.Context, p model.Pekerja) error {
 
 // Nonaktifkan mencatat tanggal keluar pekerja tanpa menghapus datanya.
 func (r *PekerjaRepo) Nonaktifkan(ctx context.Context, id int, tanggalKeluar time.Time) error {
-	if tanggalKeluar.IsZero() {
-		return fmt.Errorf("tanggal keluar wajib diisi")
-	}
-
-	// Pastikan pekerja ditemukan.
-	p, err := r.CariByID(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	// Pekerja yang sudah keluar tidak boleh dinonaktifkan lagi.
-	if p.TanggalKeluar != nil {
-		return fmt.Errorf("pekerja %d sudah nonaktif", id)
-	}
-
-	// Tanggal keluar tidak boleh lebih awal dari tanggal masuk.
-	if tanggalKeluar.Format("2006-01-02") < p.TanggalMasuk.Format("2006-01-02") {
-		return fmt.Errorf("tanggal keluar tidak boleh sebelum tanggal masuk")
-	}
-
 	res, err := r.DB.ExecContext(ctx,
 		`UPDATE pekerja
 		SET tanggal_keluar = ?,
 		    updated_at = NOW()
 		WHERE id_pekerja = ? AND tanggal_keluar IS NULL`,
-		tanggalKeluar,
+		tanggalKeluar.Format("2006-01-02"),
 		id,
 	)
 
@@ -200,7 +187,7 @@ func (r *PekerjaRepo) Nonaktifkan(ctx context.Context, id int, tanggalKeluar tim
 	}
 
 	if jumlah == 0 {
-		return fmt.Errorf("pekerja %d tidak dapat dinonaktifkan karena datanya telah berubah", id)
+		return &AturanError{Pesan: "Pekerja sudah dinonaktifkan atau datanya telah berubah"}
 	}
 
 	return nil

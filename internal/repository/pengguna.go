@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/go-sql-driver/mysql"
 
@@ -148,34 +149,81 @@ func (r *PenggunaRepo) HitungPengguna(ctx context.Context) (int, error) {
 
 // AmbilRingkasanDashboard mengambil ringkasan metrik utama untuk halaman Beranda.
 func (r *PenggunaRepo) AmbilRingkasanDashboard(ctx context.Context) model.RingkasanDashboard {
-	var d model.RingkasanDashboard
+	d := model.RingkasanDashboard{
+		TotalGajiPeriodeBerjalan: "0.00",
+		TotalSaldoKasbon:         "0.00",
+	}
 
-	_ = r.DB.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM pekerja WHERE tanggal_keluar IS NULL`,
-	).Scan(&d.TotalPekerjaAktif)
+	const filterAktif = `tanggal_masuk <= CURDATE() AND (tanggal_keluar IS NULL OR tanggal_keluar >= CURDATE())`
 
-	_ = r.DB.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM pekerja WHERE tanggal_keluar IS NULL AND jenis_pekerja = 'harian'`,
-	).Scan(&d.PekerjaHarianAktif)
+	if err := r.DB.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM pekerja WHERE `+filterAktif,
+	).Scan(&d.TotalPekerjaAktif); err != nil {
+		log.Printf("dashboard total pekerja aktif: %v", err)
+	}
 
-	_ = r.DB.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM pekerja WHERE tanggal_keluar IS NULL AND jenis_pekerja = 'bulanan'`,
-	).Scan(&d.PekerjaBulananAktif)
+	if err := r.DB.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM pekerja WHERE `+filterAktif+` AND jenis_pekerja = 'harian'`,
+	).Scan(&d.PekerjaHarianAktif); err != nil {
+		log.Printf("dashboard pekerja harian aktif: %v", err)
+	}
 
-	_ = r.DB.QueryRowContext(ctx,
+	if err := r.DB.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM pekerja WHERE `+filterAktif+` AND jenis_pekerja = 'bulanan'`,
+	).Scan(&d.PekerjaBulananAktif); err != nil {
+		log.Printf("dashboard pekerja bulanan aktif: %v", err)
+	}
+
+	if err := r.DB.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM periode_gaji WHERE status = 'terbuka'`,
-	).Scan(&d.PeriodeTerbuka)
+	).Scan(&d.PeriodeTerbuka); err != nil {
+		log.Printf("dashboard periode terbuka: %v", err)
+	}
 
-	_ = r.DB.QueryRowContext(ctx,
+	if err := r.DB.QueryRowContext(ctx,
 		`SELECT COUNT(*)
 		 FROM jadwal_shift js
 		 LEFT JOIN absensi a ON a.id_jadwal = js.id_jadwal
 		 WHERE a.id_absensi IS NULL OR a.status_kehadiran = 'perlu_diperiksa'`,
-	).Scan(&d.AbsensiPerluPeriksa)
+	).Scan(&d.AbsensiPerluPeriksa); err != nil {
+		log.Printf("dashboard absensi perlu periksa: %v", err)
+	}
 
-	_ = r.DB.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM kasbon k LEFT JOIN (SELECT pk.id_kasbon, SUM(pk.jumlah) AS total FROM potongan_kasbon pk JOIN gaji g ON g.id_gaji = pk.id_gaji WHERE g.status_bayar = 'dibayar' GROUP BY pk.id_kasbon) paid ON paid.id_kasbon = k.id_kasbon WHERE k.jumlah > COALESCE(paid.total, 0)`,
-	).Scan(&d.KasbonAktif)
+	if err := r.DB.QueryRowContext(ctx,
+		`SELECT COUNT(*)
+		 FROM kasbon k
+		 LEFT JOIN (
+			SELECT pk.id_kasbon, SUM(pk.jumlah) AS total
+			FROM potongan_kasbon pk
+			JOIN gaji g ON g.id_gaji = pk.id_gaji
+			WHERE g.status_bayar = 'dibayar'
+			GROUP BY pk.id_kasbon
+		 ) paid ON paid.id_kasbon = k.id_kasbon
+		 WHERE k.jumlah > COALESCE(paid.total, 0)`,
+	).Scan(&d.KasbonAktif); err != nil {
+		log.Printf("dashboard kasbon aktif: %v", err)
+	}
+
+	if err := r.DB.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(g.gaji_bersih), 0)
+		 FROM gaji g
+		 JOIN periode_gaji p ON p.id_periode = g.id_periode
+		 WHERE p.status = 'terbuka'`,
+	).Scan(&d.TotalGajiPeriodeBerjalan); err != nil {
+		log.Printf("dashboard total gaji periode berjalan: %v", err)
+	}
+
+	if err := r.DB.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(GREATEST(k.jumlah - COALESCE((
+			SELECT SUM(pk.jumlah)
+			FROM potongan_kasbon pk
+			JOIN gaji g ON g.id_gaji = pk.id_gaji
+			WHERE pk.id_kasbon = k.id_kasbon AND g.status_bayar = 'dibayar'
+		 ), 0), 0)), 0)
+		 FROM kasbon k`,
+	).Scan(&d.TotalSaldoKasbon); err != nil {
+		log.Printf("dashboard total saldo kasbon: %v", err)
+	}
 
 	return d
 }

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"math/big"
 	"time"
 
 	"github.com/anggyputra/go-class/internal/model"
@@ -106,36 +107,47 @@ func (s *GajiService) Bayar(
 		if err != nil {
 			return err
 		}
-		if aktif == 0 {
+
+		koreksiList, err := tx.KoreksiDisetujui(ctx, idPekerja, periode)
+		if err != nil {
+			return err
+		}
+		var koreksiSen int64
+		koreksiIDs := make([]int, 0, len(koreksiList))
+		for _, k := range koreksiList {
+			koreksiSen += k.NilaiSen
+			koreksiIDs = append(koreksiIDs, k.ID)
+		}
+
+		if aktif == 0 && len(koreksiList) == 0 {
 			return &ValidasiError{Pesan: "Pekerja tidak aktif pada periode ini"}
 		}
 
-		if gaji.TotalPotonganKasbon != "0.00" || gaji.TotalKoreksi != "0.00" {
-			return &ValidasiError{
-				Pesan: "Potongan kasbon atau koreksi perlu diperiksa sebelum pembayaran",
+		// Periksa kembali perhitungan, saldo kasbon, dan koreksi berdasarkan data terbaru.
+		total := &rincianGaji{}
+		var rincian []model.DetailGaji
+		if aktif > 0 {
+			total, rincian, err = hitungRincianDraf(
+				ctx, tx, idPekerja, periode, pekerja,
+			)
+			if err != nil {
+				return err
 			}
 		}
 
-		perlu, err := tx.PerluPenyesuaianPembayaran(
-			ctx, idPekerja, gaji.ID, periode,
-		)
+		bruto := new(big.Rat).Add(&total.Pokok, &total.Lembur)
+		daftarKasbon, err := tx.KasbonBersaldo(ctx, idPekerja, periode.TanggalAkhir)
 		if err != nil {
 			return err
 		}
-		if perlu {
-			return &ValidasiError{
-				Pesan: "Potongan kasbon atau koreksi perlu diperiksa sebelum pembayaran",
-			}
+		alokasi, totalKasbonSen, sebelumNegatif := hitungAlokasiKasbon(
+			bruto, &total.PotonganTelat, koreksiSen, daftarKasbon,
+		)
+		if sebelumNegatif {
+			return &ValidasiError{Pesan: "Nilai gaji sebelum potongan kasbon negatif; pembayaran ditahan untuk pemeriksaan"}
 		}
 
-		// Periksa kembali perhitungan berdasarkan data terbaru.
-		total, rincian, err := hitungRincianDraf(
-			ctx, tx, idPekerja, periode, pekerja,
-		)
-		if err != nil {
-			return err
-		}
-		hasil, err := hitungTotalGaji(total, 0, 0)
+		hasil, err := hitungTotalGaji(total, totalKasbonSen, koreksiSen)
 		if err != nil {
 			return err
 		}
@@ -146,19 +158,35 @@ func (s *GajiService) Bayar(
 		if gaji.GajiPokok != total.Pokok.FloatString(2) ||
 			gaji.TotalLembur != total.Lembur.FloatString(2) ||
 			gaji.PotonganTelat != total.PotonganTelat.FloatString(2) ||
+			gaji.TotalPotonganKasbon != big.NewRat(totalKasbonSen, 100).FloatString(2) ||
+			gaji.TotalKoreksi != big.NewRat(koreksiSen, 100).FloatString(2) ||
 			gaji.GajiBruto != hasil.Bruto.FloatString(2) ||
 			gaji.GajiBersih != hasil.Bersih.FloatString(0)+".00" {
 			return &ValidasiError{
-				Pesan: "Data penggajian berubah. Hitung ulang draf sebelum membayar",
+				Pesan: "Data penggajian, kasbon, atau koreksi berubah. Hitung ulang draf sebelum membayar",
 			}
 		}
 
-		// Simpan rincian terbaru sebelum mengunci hasil lewat pembayaran.
-		if _, err := simpanDraf(ctx, tx, gaji, rincian); err != nil {
+		// Simpan rincian, potongan kasbon final, koreksi diterapkan, dan pembayaran dalam satu transaksi atomik.
+		idGaji, err := simpanDraf(ctx, tx, gaji, rincian)
+		if err != nil {
+			return err
+		}
+		if err := tx.HapusPotonganKasbonDraf(ctx, int(idGaji)); err != nil {
+			return err
+		}
+		for _, a := range alokasi {
+			if err := tx.TambahPotonganKasbon(
+				ctx, int(idGaji), a.IDKasbon, big.NewRat(a.JumlahSen, 100).FloatString(2),
+			); err != nil {
+				return err
+			}
+		}
+		if err := tx.TerapkanKoreksi(ctx, int(idGaji), koreksiIDs); err != nil {
 			return err
 		}
 
-		return tx.CatatPembayaran(ctx, gaji.ID)
+		return tx.CatatPembayaran(ctx, int(idGaji))
 	})
 
 	return errorAturan(err)

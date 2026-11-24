@@ -9,5 +9,7 @@ type PeriodeGaji struct {
 	TanggalAkhir        time.Time
 	TanggalBayarRencana time.Time
 	Status              string
+	DitutupOlehNama     string
+	DitutupPada         *time.Time
 }
 

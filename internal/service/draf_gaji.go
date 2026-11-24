@@ -63,20 +63,49 @@ func (s *GajiService) HitungDraf(
 		if err != nil {
 			return err
 		}
-		if hariAktif == 0 && koreksiSen == 0 {
+
+		koreksiList, err := tx.KoreksiDisetujui(ctx, idPekerja, periode)
+		if err != nil {
+			return err
+		}
+		koreksiPakaiSen := koreksiSen
+		if koreksiPakaiSen == 0 {
+			for _, k := range koreksiList {
+				koreksiPakaiSen += k.NilaiSen
+			}
+		}
+
+		if hariAktif == 0 && koreksiPakaiSen == 0 && len(koreksiList) == 0 {
 			return &ValidasiError{
 				Pesan: "Pekerja tidak aktif pada periode ini dan tidak memiliki koreksi",
 			}
 		}
 
-		total, rincian, err := hitungRincianDraf(
-			ctx, tx, idPekerja, periode, pekerja,
-		)
-		if err != nil {
-			return err
+		total := &rincianGaji{}
+		var rincian []model.DetailGaji
+		if hariAktif > 0 {
+			total, rincian, err = hitungRincianDraf(
+				ctx, tx, idPekerja, periode, pekerja,
+			)
+			if err != nil {
+				return err
+			}
 		}
 
-		hasil, err := hitungTotalGaji(total, kasbonSen, koreksiSen)
+		bruto := new(big.Rat).Add(&total.Pokok, &total.Lembur)
+		var alokasi []alokasiKasbon
+		kasbonPakaiSen := kasbonSen
+		if kasbonPakaiSen == 0 {
+			daftarKasbon, err := tx.KasbonBersaldo(ctx, idPekerja, periode.TanggalAkhir)
+			if err != nil {
+				return err
+			}
+			alokasi, kasbonPakaiSen, _ = hitungAlokasiKasbon(
+				bruto, &total.PotonganTelat, koreksiPakaiSen, daftarKasbon,
+			)
+		}
+
+		hasil, err := hitungTotalGaji(total, kasbonPakaiSen, koreksiPakaiSen)
 		if err != nil {
 			return err
 		}
@@ -87,15 +116,30 @@ func (s *GajiService) HitungDraf(
 			GajiPokok:           total.Pokok.FloatString(2),
 			TotalLembur:         total.Lembur.FloatString(2),
 			PotonganTelat:       total.PotonganTelat.FloatString(2),
-			TotalPotonganKasbon: big.NewRat(kasbonSen, 100).FloatString(2),
-			TotalKoreksi:        big.NewRat(koreksiSen, 100).FloatString(2),
+			TotalPotonganKasbon: big.NewRat(kasbonPakaiSen, 100).FloatString(2),
+			TotalKoreksi:        big.NewRat(koreksiPakaiSen, 100).FloatString(2),
 			GajiBruto:           hasil.Bruto.FloatString(2),
-			GajiBersih:          hasil.Bersih.FloatString(0),
+			GajiBersih:          hasil.Bersih.FloatString(0) + ".00",
 			StatusBayar:         "belum",
 		}
 
 		id, err = simpanDraf(ctx, tx, gaji, rincian)
-		return err
+		if err != nil {
+			return err
+		}
+
+		if err := tx.HapusPotonganKasbonDraf(ctx, int(id)); err != nil {
+			return err
+		}
+		for _, a := range alokasi {
+			if err := tx.TambahPotonganKasbon(
+				ctx, int(id), a.IDKasbon, big.NewRat(a.JumlahSen, 100).FloatString(2),
+			); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	})
 	if err != nil {
 		return 0, err

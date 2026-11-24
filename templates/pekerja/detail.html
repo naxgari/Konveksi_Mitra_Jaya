@@ -44,7 +44,7 @@
         <tr>
             <th>Tanggal Masuk</th>
             <td>
-                {{.TanggalMasuk.Format "02 Jan 2006"}}
+                {{tgl_indo .TanggalMasuk}}
             </td>
         </tr>
 
@@ -52,7 +52,7 @@
             <th>Tanggal Keluar</th>
             <td>
                 {{if .TanggalKeluar}}
-                    {{.TanggalKeluar.Format "02 Jan 2006"}}
+                    {{tgl_indo .TanggalKeluar}}
                 {{else}}
                     -
                 {{end}}
@@ -63,9 +63,9 @@
             <th>Status Pekerja</th>
             <td>
                 {{if .TanggalKeluar}}
-                    <span class="badge">Nonaktif</span>
+                    <span class="badge badge-danger">Nonaktif</span>
                 {{else}}
-                    <span class="badge">Aktif</span>
+                    <span class="badge badge-success">Aktif</span>
                 {{end}}
             </td>
         </tr>
@@ -73,7 +73,7 @@
         <tr>
             <th>Data Dibuat</th>
             <td>
-                {{.CreatedAt.Format "02 Jan 2006 15:04"}}
+                {{tgl_indo .CreatedAt}} {{.CreatedAt.Format "15:04"}}
             </td>
         </tr>
 
@@ -81,7 +81,7 @@
             <th>Terakhir Diperbarui</th>
             <td>
                 {{if .UpdatedAt}}
-                    {{.UpdatedAt.Format "02 Jan 2006 15:04"}}
+                    {{tgl_indo .UpdatedAt}} {{.UpdatedAt.Format "15:04"}}
                 {{else}}
                     -
                 {{end}}
@@ -91,10 +91,12 @@
 </table>
 
 <div class="actions">
+    {{if and currentUser currentUser.AdalahAdmin}}
     <a href="/pekerja/{{.ID}}/edit"
        class="btn btn-light">
         Edit Pekerja
     </a>
+    {{end}}
 
     <a href="/pekerja/{{.ID}}/upah"
        class="btn">

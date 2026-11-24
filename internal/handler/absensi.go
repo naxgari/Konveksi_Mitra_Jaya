@@ -48,6 +48,10 @@ type PemeriksaanPage struct {
 }
 
 func (h *AbsensiHandler) JadwalDaftar(w http.ResponseWriter, r *http.Request) {
+	h.renderJadwalDaftar(w, r, http.StatusOK, "")
+}
+
+func (h *AbsensiHandler) renderJadwalDaftar(w http.ResponseWriter, r *http.Request, status int, pesanError string) {
 	user, _ := middleware.PenggunaDariContext(r.Context())
 	if !user.AdalahAdmin() && !user.AdalahPemilik() {
 		http.Error(w, "Akses ditolak", http.StatusForbidden)
@@ -68,14 +72,14 @@ func (h *AbsensiHandler) JadwalDaftar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
-	p := JadwalPage{Admin: user.AdalahAdmin(), Pekerja: ps, Mulai: q.Get("mulai"), Akhir: q.Get("akhir"), FilterPekerja: q.Get("pekerja")}
+	p := JadwalPage{Admin: user.AdalahAdmin(), Pekerja: ps, Mulai: q.Get("mulai"), Akhir: q.Get("akhir"), FilterPekerja: q.Get("pekerja"), Error: pesanError}
 	for _, j := range js {
 		if !dalamFilter(j, q) || !filterPekerja(j, q) {
 			continue
 		}
 		p.Jadwal = append(p.Jadwal, j)
 	}
-	h.View.Tampil(w, "absensi/jadwal_list.html", p)
+	h.View.TampilStatus(w, status, "absensi/jadwal_list.html", p)
 }
 func (h *AbsensiHandler) JadwalFormTambah(w http.ResponseWriter, r *http.Request) {
 	h.jadwalForm(w, r, model.JadwalShift{}, "")
@@ -188,6 +192,10 @@ func (h *AbsensiHandler) JadwalHapus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.Svc.JadwalHapus(r.Context(), id); err != nil {
+		if validasi(err) {
+			h.renderJadwalDaftar(w, r, http.StatusBadRequest, validasiPesan(err))
+			return
+		}
 		gagal(w, err)
 		return
 	}
@@ -354,6 +362,10 @@ func validasiPesan(err error) string {
 }
 
 func (h *AbsensiHandler) ShiftDaftar(w http.ResponseWriter, r *http.Request) {
+	h.renderShiftDaftar(w, r, http.StatusOK, "")
+}
+
+func (h *AbsensiHandler) renderShiftDaftar(w http.ResponseWriter, r *http.Request, status int, pesanError string) {
 	u, _ := middleware.PenggunaDariContext(r.Context())
 	if !u.AdalahAdmin() && !u.AdalahPemilik() {
 		http.Error(w, "Akses ditolak", http.StatusForbidden)
@@ -364,7 +376,7 @@ func (h *AbsensiHandler) ShiftDaftar(w http.ResponseWriter, r *http.Request) {
 		gagal(w, e)
 		return
 	}
-	h.View.Tampil(w, "absensi/shift_list.html", ShiftPage{Admin: u.AdalahAdmin(), Shift: ss})
+	h.View.TampilStatus(w, status, "absensi/shift_list.html", ShiftPage{Admin: u.AdalahAdmin(), Shift: ss, Error: pesanError})
 }
 func (h *AbsensiHandler) ShiftFormTambah(w http.ResponseWriter, r *http.Request) {
 	h.shiftForm(w, r, model.Shift{}, "")
@@ -427,6 +439,10 @@ func (h *AbsensiHandler) ShiftHapus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if e := h.Svc.ShiftHapus(r.Context(), id); e != nil {
+		if validasi(e) {
+			h.renderShiftDaftar(w, r, http.StatusBadRequest, validasiPesan(e))
+			return
+		}
 		gagal(w, e)
 		return
 	}

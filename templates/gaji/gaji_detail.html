@@ -1,19 +1,33 @@
 {{define "content"}}
 <section class="dashboard">
     <div class="page-head">
-        <h1>Detail Gaji Pekerja #{{.Gaji.IDPekerja}}</h1>
+        <h1>Detail Gaji {{if .Gaji.NamaPekerja}}{{.Gaji.NamaPekerja}} (#{{.Gaji.IDPekerja}}){{else}}Pekerja #{{.Gaji.IDPekerja}}{{end}}</h1>
         <p class="subtitle">
             {{tgl_indo .Periode.TanggalAwal}}
             – {{tgl_indo .Periode.TanggalAkhir}}
         </p>
     </div>
 
+    {{if .Error}}
+    <p class="notice warning" role="alert">{{.Error}}</p>
+    {{end}}
+
     <div class="quick-links">
         <a class="btn btn-light" href="/periode/{{.Periode.ID}}">
             Kembali ke Periode
         </a>
+        <a class="btn btn-light" href="/gaji/{{.Gaji.ID}}/slip">
+            Lihat / Cetak Slip
+        </a>
 
         {{if and .Admin (eq .Periode.Status "terbuka") (eq .Gaji.StatusBayar "belum")}}
+        <form
+            method="post"
+            action="/periode/{{.Periode.ID}}/hitung"
+        >
+            <input type="hidden" name="id_pekerja" value="{{.Gaji.IDPekerja}}">
+            <button class="btn btn-light" type="submit">Hitung Ulang Draf</button>
+        </form>
         <form
             method="post"
             action="/gaji/{{.Gaji.ID}}/bayar"
@@ -27,7 +41,7 @@
     <div class="panel">
         <div class="panel-row">
             <span>Gaji bersih</span>
-            <strong>Rp {{.Gaji.GajiBersih}}</strong>
+            <strong>{{rupiah_upah .Gaji.GajiBersih}}</strong>
         </div>
 
         <div class="panel-row">
@@ -43,7 +57,7 @@
             <span>Waktu pembayaran</span>
             <strong>
                 {{with .Gaji.DibayarPada}}
-                    {{.Format "02 Jan 2006 15:04"}}
+                    {{tgl_indo .}} {{.Format "15:04"}}
                 {{else}}
                     -
                 {{end}}
@@ -56,27 +70,27 @@
 
         <div class="panel-row">
             <span>Gaji pokok</span>
-            <strong>Rp {{.Gaji.GajiPokok}}</strong>
+            <strong>{{rupiah_upah .Gaji.GajiPokok}}</strong>
         </div>
         <div class="panel-row">
             <span>Upah lembur</span>
-            <strong>Rp {{.Gaji.TotalLembur}}</strong>
+            <strong>{{rupiah_upah .Gaji.TotalLembur}}</strong>
         </div>
         <div class="panel-row">
             <span>Gaji bruto</span>
-            <strong>Rp {{.Gaji.GajiBruto}}</strong>
+            <strong>{{rupiah_upah .Gaji.GajiBruto}}</strong>
         </div>
         <div class="panel-row">
             <span>Potongan keterlambatan</span>
-            <strong>Rp {{.Gaji.PotonganTelat}}</strong>
+            <strong>{{rupiah_upah .Gaji.PotonganTelat}}</strong>
         </div>
         <div class="panel-row">
             <span>Potongan kasbon</span>
-            <strong>Rp {{.Gaji.TotalPotonganKasbon}}</strong>
+            <strong>{{rupiah_upah .Gaji.TotalPotonganKasbon}}</strong>
         </div>
         <div class="panel-row">
             <span>Koreksi</span>
-            <strong>Rp {{.Gaji.TotalKoreksi}}</strong>
+            <strong>{{rupiah_upah .Gaji.TotalKoreksi}}</strong>
         </div>
     </div>
 
@@ -100,13 +114,13 @@
                 {{range .Rincian}}
                 <tr>
                     <td>{{tgl_indo .Tanggal}}</td>
-                    <td>Rp {{.NominalUpah}}</td>
-                    <td>Rp {{.TarifPerJam}}</td>
-                    <td>Rp {{.NilaiPokok}}</td>
+                    <td>{{rupiah_upah .NominalUpah}}</td>
+                    <td>{{rupiah_upah .TarifPerJam}}</td>
+                    <td>{{rupiah_upah .NilaiPokok}}</td>
                     <td>{{.MenitTelat}}</td>
                     <td>{{.JamLembur}}</td>
-                    <td>Rp {{.NilaiLembur}}</td>
-                    <td>Rp {{.PotonganTelat}}</td>
+                    <td>{{rupiah_upah .NilaiLembur}}</td>
+                    <td>{{rupiah_upah .PotonganTelat}}</td>
                 </tr>
                 {{else}}
                 <tr class="empty-row">

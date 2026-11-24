@@ -73,7 +73,7 @@ func (r *RiwayatUpahRepo) Tambah(
 		(id_pekerja, berlaku_mulai, nominal, keterangan)
 		VALUES (?, ?, ?, ?)`,
 		u.IDPekerja,
-		u.BerlakuMulai,
+		u.BerlakuMulai.Format("2006-01-02"),
 		u.Nominal,
 		u.Keterangan,
 	)
@@ -107,7 +107,7 @@ func (r *RiwayatUpahRepo) TarifBerlaku(
 		ORDER BY berlaku_mulai DESC, id_upah DESC
 		LIMIT 1`,
 		idPekerja,
-		tanggal,
+		tanggal.Format("2006-01-02"),
 	).Scan(
 		&u.ID,
 		&u.IDPekerja,

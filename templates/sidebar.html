@@ -2,5 +2,5 @@
 <div class="brand-name">MJ &nbsp;Mitra Jaya</div><div class="brand-sub">KONVEKSI · PENGGAJIAN</div>
 <div class="menu-caption">MENU UTAMA</div><nav aria-label="Menu utama">
 <a href="/">Dashboard</a>{{if .BisaAksesGaji}}<a href="/pekerja" title="Data Pekerja &amp; Upah">Data Pekerja</a><a href="/jadwal">Shift dan Jadwal</a><a href="/absensi/pemeriksaan">Absensi</a><a href="/kasbon">Kasbon</a><a href="/periode" title="Periode &amp; Hitung Gaji">Penggajian</a><a href="/koreksi">Koreksi Gaji</a><a href="/laporan/rekap">Laporan</a>{{end}}
-</nav><div class="sidebar-bottom"><p>{{.LabelPeran}}</p><p class="sidebar-note">Akun internal Mitra Jaya</p><form method="post" action="/logout"><button class="btn btn-light" type="submit">Keluar</button></form></div>
+</nav><div class="sidebar-bottom"><p>{{.LabelPeran}}</p><p class="sidebar-note">Akun internal Mitra Jaya · <a href="/profil" style="color:#4f46e5;font-weight:500;">Profil</a></p><form method="post" action="/logout"><button class="btn btn-light" type="submit">Keluar</button></form></div>
 {{end}}{{end}}

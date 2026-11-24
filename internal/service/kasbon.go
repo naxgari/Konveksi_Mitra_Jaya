@@ -87,17 +87,19 @@ func (s *KasbonService) PekerjaPilihan(ctx context.Context) ([]model.PekerjaJadw
 	return s.Repo.PekerjaAktif(ctx)
 }
 
+const maxNominalDecimal = 9999999999999.99
+
 // KasbonBuat memvalidasi & mencatat pengajuan kasbon baru.
 func (s *KasbonService) KasbonBuat(ctx context.Context, k model.Kasbon) (int64, error) {
 	if err := validasiKasbon(k); err != nil {
 		return 0, err
 	}
-	ada, err := s.Repo.PekerjaAdaAktif(ctx, k.IDPekerja)
+	ada, err := s.Repo.PekerjaAdaAktif(ctx, k.IDPekerja, k.Tanggal)
 	if err != nil {
 		return 0, err
 	}
 	if !ada {
-		return 0, &ValidasiError{"Pekerja tidak ditemukan atau sudah berhenti"}
+		return 0, &ValidasiError{"Pekerja tidak ditemukan atau tanggal kasbon di luar masa aktif"}
 	}
 	id, err := s.Repo.KasbonBuat(ctx, k)
 	return id, errorAturan(err)
@@ -110,8 +112,8 @@ func validasiKasbon(k model.Kasbon) error {
 	if k.Tanggal.IsZero() {
 		return &ValidasiError{"Tanggal pengambilan wajib diisi"}
 	}
-	if k.Jumlah <= 0 || !nominalDuaDesimalValid(k.Jumlah) {
-		return &ValidasiError{"Jumlah kasbon harus lebih dari 0"}
+	if k.Jumlah <= 0 || k.Jumlah > maxNominalDecimal || !nominalDuaDesimalValid(k.Jumlah) {
+		return &ValidasiError{"Jumlah kasbon harus antara 0,01 dan 9.999.999.999.999,99"}
 	}
 	if utf8.RuneCountInString(k.Keterangan) > 255 {
 		return &ValidasiError{"Keterangan maksimal 255 karakter"}
@@ -213,7 +215,7 @@ func (s *KasbonService) GajiDibayarPilihan(ctx context.Context) ([]model.Pilihan
 
 func (s *KasbonService) KoreksiBuat(ctx context.Context, k model.KoreksiGaji) (int64, error) {
 	k.Alasan = strings.TrimSpace(k.Alasan)
-	if k.IDGajiAsal <= 0 || k.Tanggal.IsZero() || k.NilaiSelisih == 0 || !nominalDuaDesimalValid(k.NilaiSelisih) || k.Alasan == "" || utf8.RuneCountInString(k.Alasan) > 255 {
+	if k.IDGajiAsal <= 0 || k.Tanggal.IsZero() || k.NilaiSelisih == 0 || math.Abs(k.NilaiSelisih) > maxNominalDecimal || !nominalDuaDesimalValid(k.NilaiSelisih) || k.Alasan == "" || utf8.RuneCountInString(k.Alasan) > 255 {
 		return 0, &ValidasiError{"Gaji asal, tanggal, nilai selisih, dan alasan wajib valid"}
 	}
 	dibayar, err := s.Repo.GajiAsalDibayar(ctx, k.IDGajiAsal)
@@ -227,11 +229,14 @@ func (s *KasbonService) KoreksiBuat(ctx context.Context, k model.KoreksiGaji) (i
 	return id, errorAturan(err)
 }
 
-func (s *KasbonService) KoreksiSetujui(ctx context.Context, id, idPemilik int) error {
-	if id <= 0 || idPemilik <= 0 {
-		return &ValidasiError{"ID koreksi atau pemilik tidak valid"}
+func (s *KasbonService) KoreksiSetujui(ctx context.Context, id int, pemilik model.Pengguna) error {
+	if pemilik.Peran != model.PeranPemilik || pemilik.ID <= 0 {
+		return &ValidasiError{"Persetujuan koreksi hanya boleh dilakukan Pemilik"}
 	}
-	return errorAturan(s.Repo.KoreksiSetujui(ctx, id, idPemilik))
+	if id <= 0 {
+		return &ValidasiError{"ID koreksi tidak valid"}
+	}
+	return errorAturan(s.Repo.KoreksiSetujui(ctx, id, pemilik.ID))
 }
 
 func (s *KasbonService) KoreksiHapus(ctx context.Context, id int) error {

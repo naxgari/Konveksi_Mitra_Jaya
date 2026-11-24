@@ -4,10 +4,12 @@
 <div class="page-head clearfix">
     <h3 class="float-left">Riwayat Upah Pekerja</h3>
 
+    {{if and currentUser currentUser.AdalahAdmin}}
     <a href="/pekerja/{{.Pekerja.ID}}/upah/form"
        class="btn float-right">
         + Tambah Riwayat Upah
     </a>
+    {{end}}
 </div>
 
 <div class="form-group">
@@ -40,7 +42,8 @@
 
 <h4>Daftar Riwayat Upah</h4>
 
-<table class="table">
+<div class="table-scroll">
+<table class="module-table">
     <thead>
         <tr>
             <th width="50px">ID</th>
@@ -57,7 +60,7 @@
             <td>{{.ID}}</td>
 
             <td>
-                {{.BerlakuMulai.Format "02 Jan 2006"}}
+                {{tgl_indo .BerlakuMulai}}
             </td>
 
             <td>
@@ -73,19 +76,20 @@
             </td>
 
             <td>
-                {{.CreatedAt.Format "02 Jan 2006 15:04"}}
+                {{tgl_indo .CreatedAt}} {{.CreatedAt.Format "15:04"}}
             </td>
         </tr>
 
         {{else}}
-        <tr>
-            <td colspan="5" style="text-align: center;">
+        <tr class="empty-row">
+            <td colspan="5">
                 Belum ada riwayat upah untuk pekerja ini.
             </td>
         </tr>
         {{end}}
     </tbody>
 </table>
+</div>
 
 <div class="actions">
     <a href="/pekerja/{{.Pekerja.ID}}"

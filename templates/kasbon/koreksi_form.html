@@ -1,13 +1,14 @@
 {{define "content"}}
 <div class="dashboard module-page">
   <h1>Ajukan Koreksi Gaji</h1><p class="subtitle">Koreksi menunggu persetujuan Pemilik sebelum otomatis dibebankan pada gaji berikutnya.</p>
+  {{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
   <form method="post" action="/koreksi" class="form-card">
     <label>Gaji asal (sudah dibayar) *
-      <select class="form-control" name="id_gaji_asal" required><option value="">Pilih gaji asal</option>{{range .Gaji}}<option value="{{.ID}}">{{.Label}}</option>{{end}}</select>
+      <select class="form-control" name="id_gaji_asal" required><option value="">Pilih gaji asal</option>{{range .Gaji}}<option value="{{.ID}}" {{if eq (printf "%d" .ID) $.IDGajiAsal}}selected{{end}}>{{.Label}}</option>{{end}}</select>
     </label>
-    <label>Tanggal koreksi *<input class="form-control" type="date" name="tanggal" required></label>
-    <label>Nilai selisih (Rp) *<input class="form-control" type="number" name="nilai_selisih" step="0.01" required><small>Gunakan angka positif untuk menambah gaji dan negatif untuk mengurangi.</small></label>
-    <label>Alasan *<textarea class="form-control" name="alasan" maxlength="255" rows="4" required></textarea></label>
+    <label>Tanggal koreksi *<input class="form-control" type="date" name="tanggal" value="{{.Tanggal}}" required></label>
+    <label>Nilai selisih (Rp) *<input class="form-control" type="number" name="nilai_selisih" min="-9999999999999.99" max="9999999999999.99" step="0.01" value="{{.NilaiSelisih}}" required><small>Gunakan angka positif untuk menambah gaji dan negatif untuk mengurangi.</small></label>
+    <label>Alasan *<textarea class="form-control" name="alasan" maxlength="255" rows="4" required>{{.Alasan}}</textarea></label>
     <div class="form-actions"><a class="btn btn-light" href="/koreksi">Batal</a><button class="btn" type="submit">Kirim pengajuan</button></div>
   </form>
 </div>

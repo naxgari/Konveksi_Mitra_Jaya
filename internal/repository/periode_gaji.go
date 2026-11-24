@@ -19,10 +19,12 @@ type PeriodeGajiTx struct {
 
 func (r *PeriodeGajiRepo) Semua(ctx context.Context) ([]model.PeriodeGaji, error) {
 	rows, err := r.DB.QueryContext(ctx, `
-		SELECT id_periode, jenis_periode, tanggal_awal, tanggal_akhir,
-		       tanggal_bayar_rencana, status
-		FROM periode_gaji
-		ORDER BY tanggal_awal DESC, id_periode DESC`)
+		SELECT p.id_periode, p.jenis_periode, p.tanggal_awal, p.tanggal_akhir,
+		       p.tanggal_bayar_rencana, p.status,
+		       COALESCE(u.nama_lengkap, ''), p.ditutup_pada
+		FROM periode_gaji p
+		LEFT JOIN pengguna u ON u.id_pengguna = p.ditutup_oleh
+		ORDER BY p.tanggal_awal DESC, p.id_periode DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("daftar periode gaji: %w", err)
 	}
@@ -39,6 +41,8 @@ func (r *PeriodeGajiRepo) Semua(ctx context.Context) ([]model.PeriodeGaji, error
 			&p.TanggalAkhir,
 			&p.TanggalBayarRencana,
 			&p.Status,
+			&p.DitutupOlehNama,
+			&p.DitutupPada,
 		); err != nil {
 			return nil, fmt.Errorf("scan periode gaji: %w", err)
 		}
@@ -53,10 +57,12 @@ func (r *PeriodeGajiRepo) CariByID(ctx context.Context, id int) (model.PeriodeGa
 	var p model.PeriodeGaji
 
 	err := r.DB.QueryRowContext(ctx, `
-		SELECT id_periode, jenis_periode, tanggal_awal, tanggal_akhir,
-		       tanggal_bayar_rencana, status
-		FROM periode_gaji
-		WHERE id_periode = ?`, id,
+		SELECT p.id_periode, p.jenis_periode, p.tanggal_awal, p.tanggal_akhir,
+		       p.tanggal_bayar_rencana, p.status,
+		       COALESCE(u.nama_lengkap, ''), p.ditutup_pada
+		FROM periode_gaji p
+		LEFT JOIN pengguna u ON u.id_pengguna = p.ditutup_oleh
+		WHERE p.id_periode = ?`, id,
 	).Scan(
 		&p.ID,
 		&p.Jenis,
@@ -64,6 +70,8 @@ func (r *PeriodeGajiRepo) CariByID(ctx context.Context, id int) (model.PeriodeGa
 		&p.TanggalAkhir,
 		&p.TanggalBayarRencana,
 		&p.Status,
+		&p.DitutupOlehNama,
+		&p.DitutupPada,
 	)
 
 	if errors.Is(err, sql.ErrNoRows) {
@@ -165,6 +173,44 @@ func (t *PeriodeGajiTx) StatusGaji(ctx context.Context, idPeriode int) ([]string
 	}
 
 	return daftar, rows.Err()
+}
+
+func (t *PeriodeGajiTx) PekerjaBelumDibayar(ctx context.Context, idPeriode int) (int, error) {
+	var n int
+	err := t.tx.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM pekerja p
+		JOIN periode_gaji pg ON pg.id_periode = ?
+		LEFT JOIN gaji g
+			ON g.id_pekerja = p.id_pekerja
+			AND g.id_periode = pg.id_periode
+		WHERE (
+			(pg.jenis_periode = 'mingguan' AND p.jenis_pekerja = 'harian')
+			OR
+			(pg.jenis_periode = 'bulanan' AND p.jenis_pekerja = 'bulanan')
+		)
+		AND (
+			(
+				p.tanggal_masuk <= pg.tanggal_akhir
+				AND (p.tanggal_keluar IS NULL OR p.tanggal_keluar >= pg.tanggal_awal)
+			)
+			OR EXISTS (
+				SELECT 1
+				FROM koreksi_gaji kg
+				JOIN gaji ga ON ga.id_gaji = kg.id_gaji_asal
+				JOIN periode_gaji pa ON pa.id_periode = ga.id_periode
+				WHERE ga.id_pekerja = p.id_pekerja
+				  AND kg.status = 'disetujui'
+				  AND kg.id_gaji_tujuan IS NULL
+				  AND pa.jenis_periode = pg.jenis_periode
+				  AND pa.tanggal_awal < pg.tanggal_awal
+			)
+		)
+		AND (g.id_gaji IS NULL OR g.status_bayar != 'dibayar')`, idPeriode).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("cek pekerja belum dibayar: %w", err)
+	}
+	return n, nil
 }
 
 func (t *PeriodeGajiTx) Tambah(ctx context.Context, p model.PeriodeGaji) (int64, error) {

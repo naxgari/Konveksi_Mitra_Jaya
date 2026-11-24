@@ -4,10 +4,26 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"math"
+	"math/big"
 	"time"
 
 	"github.com/anggyputra/go-class/internal/model"
+	"github.com/go-sql-driver/mysql"
 )
+
+func kasbonDBErr(err error) error {
+	var e *mysql.MySQLError
+	if errors.As(err, &e) {
+		switch e.Number {
+		case 1062:
+			return &AturanError{Pesan: "Data kasbon atau potongan kasbon sudah tercatat"}
+		case 1451:
+			return &AturanError{Pesan: "Data tidak dapat dihapus karena masih terkait dengan data gaji"}
+		}
+	}
+	return err
+}
 
 // KasbonRepo mengelola tabel KASBON, POTONGAN_KASBON, KOREKSI_GAJI serta
 // bacaan GAJI/PERIODE_GAJI/DETAIL_GAJI yang dibutuhkan modul Kasbon, Koreksi & Laporan.
@@ -56,7 +72,7 @@ func (r *KasbonRepo) KasbonDetail(ctx context.Context, id int) (model.Kasbon, er
 
 // PekerjaAktif mengembalikan pekerja yang masih dalam masa aktif (untuk dropdown kasbon).
 func (r *KasbonRepo) PekerjaAktif(ctx context.Context) ([]model.PekerjaJadwal, error) {
-	rows, e := r.DB.QueryContext(ctx, `SELECT id_pekerja,nama,jenis_pekerja FROM pekerja WHERE tanggal_keluar IS NULL OR tanggal_keluar>=CURDATE() ORDER BY nama`)
+	rows, e := r.DB.QueryContext(ctx, `SELECT id_pekerja,nama,jenis_pekerja FROM pekerja WHERE tanggal_masuk<=CURDATE() AND (tanggal_keluar IS NULL OR tanggal_keluar>=CURDATE()) ORDER BY nama`)
 	if e != nil {
 		return nil, e
 	}
@@ -72,17 +88,22 @@ func (r *KasbonRepo) PekerjaAktif(ctx context.Context) ([]model.PekerjaJadwal, e
 	return out, rows.Err()
 }
 
-// PekerjaAdaAktif melaporkan apakah pekerja ada & masih aktif (untuk validasi pengajuan kasbon).
-func (r *KasbonRepo) PekerjaAdaAktif(ctx context.Context, id int) (bool, error) {
+// PekerjaAdaAktif melaporkan apakah pekerja ada & tanggal kasbon berada dalam masa aktifnya.
+func (r *KasbonRepo) PekerjaAdaAktif(ctx context.Context, id int, tanggalKasbon time.Time) (bool, error) {
+	var masuk time.Time
 	var keluar sql.NullTime
-	e := r.DB.QueryRowContext(ctx, `SELECT tanggal_keluar FROM pekerja WHERE id_pekerja=?`, id).Scan(&keluar)
+	e := r.DB.QueryRowContext(ctx, `SELECT tanggal_masuk,tanggal_keluar FROM pekerja WHERE id_pekerja=?`, id).Scan(&masuk, &keluar)
 	if errors.Is(e, sql.ErrNoRows) {
 		return false, nil
 	}
 	if e != nil {
 		return false, e
 	}
-	if keluar.Valid && keluar.Time.Before(time.Now()) {
+	tgl := tanggalKasbon.Format("2006-01-02")
+	if tgl < masuk.Format("2006-01-02") {
+		return false, nil
+	}
+	if keluar.Valid && tgl > keluar.Time.Format("2006-01-02") {
 		return false, nil
 	}
 	return true, nil
@@ -93,7 +114,7 @@ func (r *KasbonRepo) KasbonBuat(ctx context.Context, k model.Kasbon) (int64, err
 	res, e := r.DB.ExecContext(ctx, `INSERT INTO kasbon(id_pekerja,tanggal,jumlah,keterangan) VALUES(?,?,?,?)`,
 		k.IDPekerja, k.Tanggal.Format("2006-01-02"), k.Jumlah, k.Keterangan)
 	if e != nil {
-		return 0, dbErr(e)
+		return 0, kasbonDBErr(e)
 	}
 	return res.LastInsertId()
 }
@@ -107,9 +128,16 @@ func (r *KasbonRepo) JumlahPotonganKasbon(ctx context.Context, idKasbon int) (fl
 
 // KasbonHapus menghapus kasbon. Ditolak MySQL (FK RESTRICT) bila sudah dipotong.
 func (r *KasbonRepo) KasbonHapus(ctx context.Context, id int) error {
-	_, e := r.DB.ExecContext(ctx, `DELETE FROM kasbon WHERE id_kasbon=?`, id)
+	res, e := r.DB.ExecContext(ctx, `DELETE FROM kasbon WHERE id_kasbon=?`, id)
 	if e != nil {
-		return dbErr(e)
+		return kasbonDBErr(e)
+	}
+	n, e := res.RowsAffected()
+	if e != nil {
+		return e
+	}
+	if n == 0 {
+		return model.ErrNotFound
 	}
 	return nil
 }
@@ -222,14 +250,14 @@ func (r *KasbonRepo) KoreksiBuat(ctx context.Context, k model.KoreksiGaji) (int6
 	res, e := r.DB.ExecContext(ctx, `INSERT INTO koreksi_gaji(id_gaji_asal,dicatat_oleh,tanggal,nilai_selisih,alasan,status) VALUES(?,?,?,?,?,'diajukan')`,
 		k.IDGajiAsal, k.DicatatOleh, k.Tanggal.Format("2006-01-02"), k.NilaiSelisih, k.Alasan)
 	if e != nil {
-		return 0, dbErr(e)
+		return 0, kasbonDBErr(e)
 	}
 	return res.LastInsertId()
 }
 
 // KoreksiSetujui menandai koreksi disetujui pemilik. Hanya berlaku untuk status diajukan.
-func (r *KasbonRepo) KoreksiSetujui(ctx context.Context, id, idPemilik int) error {
-	res, e := r.DB.ExecContext(ctx, `UPDATE koreksi_gaji SET status='disetujui',disetujui_oleh=?,disetujui_pada=NOW() WHERE id_koreksi=? AND status='diajukan'`, idPemilik, id)
+func (r *KasbonRepo) KoreksiSetujui(ctx context.Context, id int, idPemilik int64) error {
+	res, e := r.DB.ExecContext(ctx, `UPDATE koreksi_gaji k JOIN pengguna u ON u.id_pengguna=? SET k.status='disetujui',k.disetujui_oleh=u.id_pengguna,k.disetujui_pada=NOW() WHERE k.id_koreksi=? AND k.status='diajukan' AND u.peran='pemilik' AND u.aktif=1`, idPemilik, id)
 	if e != nil {
 		return e
 	}
@@ -238,7 +266,15 @@ func (r *KasbonRepo) KoreksiSetujui(ctx context.Context, id, idPemilik int) erro
 		return e
 	}
 	if n == 0 {
-		return model.ErrNotFound
+		var status string
+		err := r.DB.QueryRowContext(ctx, `SELECT status FROM koreksi_gaji WHERE id_koreksi=?`, id).Scan(&status)
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		return &AturanError{Pesan: "Koreksi sudah disetujui atau diterapkan"}
 	}
 	return nil
 }
@@ -302,7 +338,7 @@ WHERE d.id_gaji=? ORDER BY d.tanggal`, idGaji)
 		return s, e
 	}
 
-	pRows, e := r.DB.QueryContext(ctx, `SELECT k.tanggal,pk.jumlah,k.keterangan FROM potongan_kasbon pk JOIN kasbon k ON k.id_kasbon=pk.id_kasbon WHERE pk.id_gaji=? ORDER BY k.tanggal`, idGaji)
+	pRows, e := r.DB.QueryContext(ctx, `SELECT k.tanggal,pk.jumlah,COALESCE(k.keterangan,'') FROM potongan_kasbon pk JOIN kasbon k ON k.id_kasbon=pk.id_kasbon WHERE pk.id_gaji=? ORDER BY k.tanggal`, idGaji)
 	if e != nil {
 		return s, e
 	}
@@ -318,7 +354,35 @@ WHERE d.id_gaji=? ORDER BY d.tanggal`, idGaji)
 		return s, e
 	}
 
-	kRows, e := r.DB.QueryContext(ctx, `SELECT tanggal,nilai_selisih,alasan,status FROM koreksi_gaji WHERE id_gaji_tujuan=? ORDER BY tanggal`, idGaji)
+	var kQuery string
+	var kArgs []any
+	if s.Gaji.StatusBayar == "dibayar" {
+		kQuery = `SELECT tanggal,nilai_selisih,alasan,status FROM koreksi_gaji WHERE id_gaji_tujuan=? ORDER BY tanggal`
+		kArgs = []any{idGaji}
+	} else {
+		awalStr := s.Periode.TanggalAwal.Format("2006-01-02")
+		kQuery = `SELECT k.tanggal,k.nilai_selisih,k.alasan,k.status
+FROM koreksi_gaji k
+JOIN gaji ga ON ga.id_gaji=k.id_gaji_asal
+JOIN periode_gaji pa ON pa.id_periode=ga.id_periode
+WHERE k.id_gaji_tujuan=?
+   OR (
+	ga.id_pekerja=?
+	AND k.status='disetujui'
+	AND k.id_gaji_tujuan IS NULL
+	AND pa.jenis_periode=?
+	AND pa.tanggal_awal<?
+	AND NOT EXISTS (
+		SELECT 1 FROM gaji g2 JOIN periode_gaji p2 ON p2.id_periode=g2.id_periode
+		WHERE g2.id_pekerja=ga.id_pekerja AND p2.jenis_periode=pa.jenis_periode
+		  AND p2.status='terbuka' AND g2.status_bayar='belum'
+		  AND p2.tanggal_awal>pa.tanggal_awal AND p2.tanggal_awal<?
+	)
+   )
+ORDER BY k.tanggal`
+		kArgs = []any{idGaji, s.Pekerja.ID, s.Periode.JenisPeriode, awalStr, awalStr}
+	}
+	kRows, e := r.DB.QueryContext(ctx, kQuery, kArgs...)
 	if e != nil {
 		return s, e
 	}
@@ -456,7 +520,8 @@ type KasbonKandidat struct {
 func (t *KasbonTx) KasbonUntukPotong(ctx context.Context, idPekerja int, tanggalAkhir time.Time) ([]KasbonKandidat, error) {
 	rows, e := t.tx.QueryContext(ctx, `SELECT k.id_kasbon,k.jumlah-COALESCE((SELECT SUM(pk.jumlah) FROM potongan_kasbon pk JOIN gaji g ON g.id_gaji=pk.id_gaji WHERE pk.id_kasbon=k.id_kasbon AND g.status_bayar='dibayar'),0) AS saldo
 FROM kasbon k WHERE k.id_pekerja=? AND k.tanggal<=?
-HAVING saldo>0 ORDER BY k.tanggal ASC,k.id_kasbon ASC FOR UPDATE`, idPekerja, tanggalAkhir.Format("2006-01-02"))
+  AND k.jumlah > COALESCE((SELECT SUM(pk.jumlah) FROM potongan_kasbon pk JOIN gaji g ON g.id_gaji=pk.id_gaji WHERE pk.id_kasbon=k.id_kasbon AND g.status_bayar='dibayar'),0)
+ORDER BY k.tanggal ASC,k.id_kasbon ASC FOR UPDATE`, idPekerja, tanggalAkhir.Format("2006-01-02"))
 	if e != nil {
 		return nil, e
 	}
@@ -475,7 +540,7 @@ HAVING saldo>0 ORDER BY k.tanggal ASC,k.id_kasbon ASC FOR UPDATE`, idPekerja, ta
 // TambahPotongan mencatat satu baris potongan kasbon pada gaji.
 func (t *KasbonTx) TambahPotongan(ctx context.Context, idGaji, idKasbon int, jumlah float64) error {
 	_, e := t.tx.ExecContext(ctx, `INSERT INTO potongan_kasbon(id_gaji,id_kasbon,jumlah) VALUES(?,?,?)`, idGaji, idKasbon, jumlah)
-	return dbErr(e)
+	return kasbonDBErr(e)
 }
 
 // TotalPotonganByGaji menghitung ulang total potongan kasbon pada gaji (SUM baris terbaru).
@@ -485,11 +550,11 @@ func (t *KasbonTx) TotalPotonganByGaji(ctx context.Context, idGaji int) (float64
 	return n, e
 }
 
-// UpdateGajiPotongan memperbarui total_potongan_kasbon & gaji_bersih.
-// gaji_bersih = gaji_bruto - potongan_telat - total_potongan_kasbon + total_koreksi.
+// UpdateGajiPotongan memperbarui total_potongan_kasbon, total_koreksi, & gaji_bersih terbulatkan (AB 09).
 func (t *KasbonTx) UpdateGajiPotongan(ctx context.Context, idGaji int, d DataGaji, totalPotongan, totalKoreksi float64) error {
-	bersih := d.GajiBruto - d.PotonganTelat - totalPotongan + totalKoreksi
-	_, e := t.tx.ExecContext(ctx, `UPDATE gaji SET total_potongan_kasbon=?,gaji_bersih=? WHERE id_gaji=?`, totalPotongan, bersih, idGaji)
+	bersihRat := big.NewRat(int64(math.Round(d.GajiBruto*100))-int64(math.Round(d.PotonganTelat*100))-int64(math.Round(totalPotongan*100))+int64(math.Round(totalKoreksi*100)), 100)
+	bersihStr := bersihRat.FloatString(0) + ".00"
+	_, e := t.tx.ExecContext(ctx, `UPDATE gaji SET total_potongan_kasbon=?,total_koreksi=?,gaji_bersih=? WHERE id_gaji=?`, totalPotongan, totalKoreksi, bersihStr, idGaji)
 	return e
 }
 
@@ -504,6 +569,7 @@ AND pt.tanggal_awal>pa.tanggal_awal AND pt.jenis_periode=pa.jenis_periode
 AND NOT EXISTS (
   SELECT 1 FROM gaji next_gaji JOIN periode_gaji next_period ON next_period.id_periode=next_gaji.id_periode
   WHERE next_gaji.id_pekerja=ga.id_pekerja AND next_period.jenis_periode=pa.jenis_periode
+    AND next_period.status='terbuka' AND next_gaji.status_bayar='belum'
     AND next_period.tanggal_awal>pa.tanggal_awal AND next_period.tanggal_awal<pt.tanggal_awal
 ) ORDER BY pa.tanggal_awal,k.id_koreksi FOR UPDATE`,
 		idGajiTujuan, idPekerja)
@@ -543,12 +609,4 @@ func (t *KasbonTx) TotalKoreksiByGaji(ctx context.Context, idGaji int) (float64,
 	var n float64
 	e := t.tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(nilai_selisih),0) FROM koreksi_gaji WHERE id_gaji_tujuan=?`, idGaji).Scan(&n)
 	return n, e
-}
-
-// UpdateGajiKoreksi memperbarui total_koreksi & gaji_bersih.
-// gaji_bersih = gaji_bruto - potongan_telat - total_potongan_kasbon + total_koreksi.
-func (t *KasbonTx) UpdateGajiKoreksi(ctx context.Context, idGaji int, d DataGaji, totalPotongan, totalKoreksi float64) error {
-	bersih := d.GajiBruto - d.PotonganTelat - totalPotongan + totalKoreksi
-	_, e := t.tx.ExecContext(ctx, `UPDATE gaji SET total_koreksi=?,gaji_bersih=? WHERE id_gaji=?`, totalKoreksi, bersih, idGaji)
-	return e
 }

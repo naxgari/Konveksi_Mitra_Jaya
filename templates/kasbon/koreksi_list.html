@@ -3,9 +3,9 @@
   <div class="page-heading"><div><h1>Koreksi Gaji</h1><p class="subtitle">Selisih gaji antarperiode; koreksi disetujui akan diterapkan ke periode gaji berikutnya.</p></div>{{if .Admin}}<a class="btn" href="/koreksi/form">Ajukan koreksi</a>{{end}}</div>
   <div class="table-scroll"><table class="module-table"><thead><tr><th>Pekerja</th><th>Gaji asal</th><th>Periode asal</th><th>Gaji tujuan</th><th>Selisih</th><th>Alasan</th><th>Status</th><th>Dicatat oleh</th><th>Persetujuan</th></tr></thead><tbody>
   {{range .Daftar}}<tr><td>{{.NamaPekerja}}</td><td><a href="/gaji/{{.IDGajiAsal}}/slip">#{{.IDGajiAsal}}</a></td><td>{{.PeriodeAsal}}</td><td>{{if gt .IDGajiTujuan 0}}<a href="/gaji/{{.IDGajiTujuan}}/slip">#{{.IDGajiTujuan}}</a> · {{.PeriodeTujuan}}{{else}}Menunggu periode berikutnya{{end}}</td><td>{{rupiah_float .NilaiSelisih}}</td><td>{{.Alasan}}</td><td>{{.Status}}</td><td>{{.NamaPencatat}}</td><td>{{if and $.Pemilik (eq .Status "diajukan")}}<form method="post" action="/koreksi/{{.ID}}/setujui"><button class="btn" type="submit">Setujui</button></form>{{else if .NamaPenyetuju}}{{.NamaPenyetuju}} · {{tgl_indo .DisetujuiPada}}{{else}}—{{end}}{{if and $.Admin (eq .Status "diajukan")}}<form method="post" action="/koreksi/{{.ID}}/hapus" class="inline-form" onsubmit="return confirm('Hapus pengajuan koreksi ini?')"><button class="text-button" type="submit">Hapus</button></form>{{end}}</td></tr>
-  {{else}}<tr><td colspan="9" class="empty-row">Belum ada koreksi gaji.</td></tr>{{end}}
+  {{else}}<tr class="empty-row"><td colspan="9">Belum ada koreksi gaji.</td></tr>{{end}}
   </tbody></table></div>
   <div class="notice">Persetujuan hanya dapat dilakukan oleh Pemilik. Koreksi asal harus berasal dari gaji yang sudah dibayar; selisih positif menambah dan selisih negatif mengurangi gaji tujuan.</div>
 </div>
-<style>.page-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}.inline-form{display:inline;margin-left:8px}.text-button{border:0;background:none;color:#9b1c1c;cursor:pointer;font:inherit}</style>
+<style>.page-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:18px}.inline-form{display:inline;margin-left:8px}.text-button{border:0;background:none;color:#9b1c1c;cursor:pointer;font:inherit}</style>
 {{end}}

@@ -23,6 +23,10 @@ func (w *UserResponseWriter) CurrentPengguna() *model.Pengguna {
 	return w.Pengguna
 }
 
+func (w *UserResponseWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
+}
+
 func SimpanPenggunaKeContext(ctx context.Context, u model.Pengguna) context.Context {
 	return context.WithValue(ctx, ctxKeyPengguna{}, u)
 }

@@ -235,6 +235,11 @@ func parseDenganLayout(file string) *template.Template {
 // Tampil me-render template ke buffer dulu supaya error template tidak menghasilkan halaman setengah jadi.
 // Jika response writer berasal dari middleware RequireLogin, fungsi template `currentUser` otomatis berisi data pengguna aktif.
 func (rd *Renderer) Tampil(w http.ResponseWriter, file string, data any) {
+	rd.TampilStatus(w, http.StatusOK, file, data)
+}
+
+// TampilStatus me-render template ke buffer terlebih dahulu lalu mengirim status HTTP dan Content-Type secara eksplisit.
+func (rd *Renderer) TampilStatus(w http.ResponseWriter, status int, file string, data any) {
 	baseTpl, ok := rd.tpl[file]
 	if !ok {
 		log.Printf("template %s belum terdaftar", file)
@@ -262,6 +267,10 @@ func (rd *Renderer) Tampil(w http.ResponseWriter, file string, data any) {
 		log.Printf("render %s: %v", file, err)
 		http.Error(w, "Terjadi kesalahan pada server", http.StatusInternalServerError)
 		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if status != http.StatusOK {
+		w.WriteHeader(status)
 	}
 	_, _ = buf.WriteTo(w)
 }

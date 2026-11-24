@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/anggyputra/go-class/internal/model"
@@ -23,6 +25,54 @@ type DataUpah struct {
 	NominalSen int64
 }
 
+type KasbonSaldo struct {
+	ID       int
+	Tanggal  time.Time
+	SaldoSen int64
+}
+
+type KoreksiTerpilih struct {
+	ID       int
+	NilaiSen int64
+}
+
+func parseDesimalSen(s string) (int64, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, nil
+	}
+	negatif := false
+	if strings.HasPrefix(s, "-") {
+		negatif = true
+		s = strings.TrimPrefix(s, "-")
+	} else if strings.HasPrefix(s, "+") {
+		s = strings.TrimPrefix(s, "+")
+	}
+	bagian := strings.SplitN(s, ".", 2)
+	rupiahVal, err := strconv.ParseInt(bagian[0], 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parse nominal rupiah %q: %w", s, err)
+	}
+	var senVal int64
+	if len(bagian) == 2 {
+		des := bagian[1]
+		if len(des) == 1 {
+			des += "0"
+		} else if len(des) > 2 {
+			des = des[:2]
+		}
+		senVal, err = strconv.ParseInt(des, 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("parse sen %q: %w", s, err)
+		}
+	}
+	total := rupiahVal*100 + senVal
+	if negatif {
+		total = -total
+	}
+	return total, nil
+}
+
 const kolomGaji = `
 	id_gaji, id_pekerja, id_periode,
 	gaji_pokok, total_lembur, potongan_telat,
@@ -31,8 +81,15 @@ const kolomGaji = `
 `
 
 func (r *GajiRepo) DaftarPerPeriode(ctx context.Context, idPeriode int) ([]model.Gaji, error) {
-	rows, err := r.DB.QueryContext(ctx,
-		"SELECT "+kolomGaji+" FROM gaji WHERE id_periode = ? ORDER BY id_pekerja",
+	rows, err := r.DB.QueryContext(ctx, `
+		SELECT g.id_gaji, g.id_pekerja, p.nama, p.jenis_pekerja, g.id_periode,
+		       g.gaji_pokok, g.total_lembur, g.potongan_telat,
+		       g.total_potongan_kasbon, g.total_koreksi,
+		       g.gaji_bruto, g.gaji_bersih, g.status_bayar, g.dibayar_pada
+		FROM gaji g
+		JOIN pekerja p ON p.id_pekerja = g.id_pekerja
+		WHERE g.id_periode = ?
+		ORDER BY p.nama, g.id_pekerja`,
 		idPeriode,
 	)
 	if err != nil {
@@ -48,6 +105,8 @@ func (r *GajiRepo) DaftarPerPeriode(ctx context.Context, idPeriode int) ([]model
 		if err := rows.Scan(
 			&g.ID,
 			&g.IDPekerja,
+			&g.NamaPekerja,
+			&g.JenisPekerja,
 			&g.IDPeriode,
 			&g.GajiPokok,
 			&g.TotalLembur,
@@ -71,11 +130,19 @@ func (r *GajiRepo) DaftarPerPeriode(ctx context.Context, idPeriode int) ([]model
 func (r *GajiRepo) CariByID(ctx context.Context, id int) (model.Gaji, error) {
 	var g model.Gaji
 
-	err := r.DB.QueryRowContext(ctx,
-		"SELECT "+kolomGaji+" FROM gaji WHERE id_gaji = ?", id,
+	err := r.DB.QueryRowContext(ctx, `
+		SELECT g.id_gaji, g.id_pekerja, p.nama, p.jenis_pekerja, g.id_periode,
+		       g.gaji_pokok, g.total_lembur, g.potongan_telat,
+		       g.total_potongan_kasbon, g.total_koreksi,
+		       g.gaji_bruto, g.gaji_bersih, g.status_bayar, g.dibayar_pada
+		FROM gaji g
+		JOIN pekerja p ON p.id_pekerja = g.id_pekerja
+		WHERE g.id_gaji = ?`, id,
 	).Scan(
 		&g.ID,
 		&g.IDPekerja,
+		&g.NamaPekerja,
+		&g.JenisPekerja,
 		&g.IDPeriode,
 		&g.GajiPokok,
 		&g.TotalLembur,
@@ -453,6 +520,154 @@ func (t *GajiTx) PerluPenyesuaianPembayaran(
 	return perlu, nil
 }
 
+func (t *GajiTx) KoreksiDisetujui(
+	ctx context.Context,
+	idPekerja int,
+	periode model.PeriodeGaji,
+) ([]KoreksiTerpilih, error) {
+	awalStr := periode.TanggalAwal.Format("2006-01-02")
+	rows, err := t.tx.QueryContext(ctx, `
+		SELECT kg.id_koreksi, kg.nilai_selisih
+		FROM koreksi_gaji kg
+		JOIN gaji ga ON ga.id_gaji = kg.id_gaji_asal
+		JOIN periode_gaji pa ON pa.id_periode = ga.id_periode
+		WHERE ga.id_pekerja = ?
+		  AND kg.status = 'disetujui'
+		  AND kg.id_gaji_tujuan IS NULL
+		  AND pa.jenis_periode = ?
+		  AND pa.tanggal_awal < ?
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM gaji g2
+			JOIN periode_gaji p2 ON p2.id_periode = g2.id_periode
+			WHERE g2.id_pekerja = ga.id_pekerja
+			  AND p2.jenis_periode = pa.jenis_periode
+			  AND p2.status = 'terbuka'
+			  AND g2.status_bayar = 'belum'
+			  AND p2.tanggal_awal > pa.tanggal_awal
+			  AND p2.tanggal_awal < ?
+		  )
+		ORDER BY kg.tanggal ASC, kg.id_koreksi ASC
+		FOR UPDATE`,
+		idPekerja,
+		periode.Jenis,
+		awalStr,
+		awalStr,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("ambil koreksi disetujui: %w", err)
+	}
+	defer rows.Close()
+
+	var hasil []KoreksiTerpilih
+	for rows.Next() {
+		var id int
+		var nilaiStr string
+		if err := rows.Scan(&id, &nilaiStr); err != nil {
+			return nil, fmt.Errorf("scan koreksi disetujui: %w", err)
+		}
+		sen, err := parseDesimalSen(nilaiStr)
+		if err != nil {
+			return nil, err
+		}
+		hasil = append(hasil, KoreksiTerpilih{ID: id, NilaiSen: sen})
+	}
+	return hasil, rows.Err()
+}
+
+func (t *GajiTx) KasbonBersaldo(
+	ctx context.Context,
+	idPekerja int,
+	tanggalAkhir time.Time,
+) ([]KasbonSaldo, error) {
+	rows, err := t.tx.QueryContext(ctx, `
+		SELECT k.id_kasbon, k.tanggal, k.jumlah,
+		       COALESCE((
+			SELECT SUM(pk.jumlah)
+			FROM potongan_kasbon pk
+			JOIN gaji g ON g.id_gaji = pk.id_gaji
+			WHERE pk.id_kasbon = k.id_kasbon
+			  AND g.status_bayar = 'dibayar'
+		       ), '0.00') AS sudah_dibayar
+		FROM kasbon k
+		WHERE k.id_pekerja = ? AND k.tanggal <= ?
+		ORDER BY k.tanggal ASC, k.id_kasbon ASC
+		FOR UPDATE`,
+		idPekerja,
+		tanggalAkhir.Format("2006-01-02"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("ambil kasbon bersaldo: %w", err)
+	}
+	defer rows.Close()
+
+	var hasil []KasbonSaldo
+	for rows.Next() {
+		var item KasbonSaldo
+		var jumlahStr, dibayarStr string
+		if err := rows.Scan(&item.ID, &item.Tanggal, &jumlahStr, &dibayarStr); err != nil {
+			return nil, fmt.Errorf("scan kasbon bersaldo: %w", err)
+		}
+		jumlahSen, err := parseDesimalSen(jumlahStr)
+		if err != nil {
+			return nil, err
+		}
+		dibayarSen, err := parseDesimalSen(dibayarStr)
+		if err != nil {
+			return nil, err
+		}
+		item.SaldoSen = jumlahSen - dibayarSen
+		if item.SaldoSen > 0 {
+			hasil = append(hasil, item)
+		}
+	}
+	return hasil, rows.Err()
+}
+
+func (t *GajiTx) HapusPotonganKasbonDraf(ctx context.Context, idGaji int) error {
+	_, err := t.tx.ExecContext(ctx, `
+		DELETE pk
+		FROM potongan_kasbon pk
+		JOIN gaji g ON g.id_gaji = pk.id_gaji
+		WHERE g.id_gaji = ? AND g.status_bayar = 'belum'`, idGaji)
+	if err != nil {
+		return fmt.Errorf("hapus potongan kasbon draf: %w", err)
+	}
+	return nil
+}
+
+func (t *GajiTx) TambahPotonganKasbon(ctx context.Context, idGaji, idKasbon int, jumlah string) error {
+	_, err := t.tx.ExecContext(ctx, `
+		INSERT INTO potongan_kasbon (id_gaji, id_kasbon, jumlah)
+		VALUES (?, ?, ?)`, idGaji, idKasbon, jumlah)
+	if err != nil {
+		return fmt.Errorf("tambah potongan kasbon: %w", err)
+	}
+	return nil
+}
+
+func (t *GajiTx) TerapkanKoreksi(ctx context.Context, idGaji int, ids []int) error {
+	for _, idKoreksi := range ids {
+		res, err := t.tx.ExecContext(ctx, `
+			UPDATE koreksi_gaji
+			SET id_gaji_tujuan = ?, status = 'diterapkan'
+			WHERE id_koreksi = ? AND status = 'disetujui' AND id_gaji_tujuan IS NULL`,
+			idGaji, idKoreksi,
+		)
+		if err != nil {
+			return fmt.Errorf("terapkan koreksi %d: %w", idKoreksi, err)
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("periksa penerapan koreksi %d: %w", idKoreksi, err)
+		}
+		if n != 1 {
+			return &AturanError{Pesan: "Status koreksi berubah; hitung ulang draf sebelum membayar"}
+		}
+	}
+	return nil
+}
+
 func (t *GajiTx) CatatPembayaran(ctx context.Context, idGaji int) error {
 	hasil, err := t.tx.ExecContext(ctx, `
 		UPDATE gaji AS g
@@ -500,10 +715,22 @@ func (r *GajiRepo) PekerjaPerPeriode(
 			OR
 			(pg.jenis_periode = 'bulanan' AND p.jenis_pekerja = 'bulanan')
 		)
-		AND p.tanggal_masuk <= pg.tanggal_akhir
 		AND (
-			p.tanggal_keluar IS NULL
-			OR p.tanggal_keluar >= pg.tanggal_awal
+			(
+				p.tanggal_masuk <= pg.tanggal_akhir
+				AND (p.tanggal_keluar IS NULL OR p.tanggal_keluar >= pg.tanggal_awal)
+			)
+			OR EXISTS (
+				SELECT 1
+				FROM koreksi_gaji kg
+				JOIN gaji ga ON ga.id_gaji = kg.id_gaji_asal
+				JOIN periode_gaji pa ON pa.id_periode = ga.id_periode
+				WHERE ga.id_pekerja = p.id_pekerja
+				  AND kg.status = 'disetujui'
+				  AND kg.id_gaji_tujuan IS NULL
+				  AND pa.jenis_periode = pg.jenis_periode
+				  AND pa.tanggal_awal < pg.tanggal_awal
+			)
 		)
 		AND (g.id_gaji IS NULL OR g.status_bayar = 'belum')
 		ORDER BY p.nama, p.id_pekerja`, idPeriode,

@@ -4,7 +4,13 @@ import (
 	"math/big"
 
 	"github.com/anggyputra/go-class/internal/model"
+	"github.com/anggyputra/go-class/internal/repository"
 )
+
+type alokasiKasbon struct {
+	IDKasbon  int
+	JumlahSen int64
+}
 
 type rincianGaji struct {
 	Pokok         big.Rat
@@ -36,6 +42,9 @@ func hitungGajiHarian(upahSen int64, absensi *model.Absensi) (*rincianGaji, erro
 	}
 	if upahSen <= 0 {
 		return nil, &ValidasiError{Pesan: "Upah harian yang berlaku belum tersedia"}
+	}
+	if absensi.MenitLembur < 0 || absensi.MenitTerlambat < 0 {
+		return nil, &ValidasiError{Pesan: "Menit lembur dan terlambat tidak boleh negatif"}
 	}
 
 	hasil.Pokok.SetFrac64(upahSen, 100)
@@ -201,4 +210,53 @@ func hitungKomponenHari(
 	hasil.Pokok.Set(pokok)
 
 	return hasil, nil
+}
+
+// hitungAlokasiKasbon mengalokasikan potongan kasbon secara FIFO (AB 08)
+// memakai big.Rat dan integer sen tanpa float64.
+// Batas maksimal = min(floor_rupiah(30% * bruto), floor_sen(bruto - telat + koreksi), saldo kasbon).
+func hitungAlokasiKasbon(
+	bruto, potonganTelat *big.Rat,
+	koreksiSen int64,
+	daftar []repository.KasbonSaldo,
+) (alokasi []alokasiKasbon, totalKasbonSen int64, sebelumKasbonNegatif bool) {
+	sebelumKasbon := new(big.Rat).Sub(bruto, potonganTelat)
+	sebelumKasbon.Add(sebelumKasbon, big.NewRat(koreksiSen, 100))
+
+	if sebelumKasbon.Sign() < 0 {
+		return nil, 0, true
+	}
+	if bruto.Sign() <= 0 || sebelumKasbon.Sign() == 0 || len(daftar) == 0 {
+		return nil, 0, false
+	}
+
+	rat30 := new(big.Rat).Mul(bruto, big.NewRat(30, 100))
+	batasRupiah := new(big.Int).Quo(rat30.Num(), rat30.Denom())
+	batas30Sen := new(big.Int).Mul(batasRupiah, big.NewInt(100)).Int64()
+
+	ratTersediaSen := new(big.Rat).Mul(sebelumKasbon, big.NewRat(100, 1))
+	sisaTersediaSen := new(big.Int).Quo(ratTersediaSen.Num(), ratTersediaSen.Denom()).Int64()
+
+	sisaLimit := min(batas30Sen, sisaTersediaSen)
+	if sisaLimit <= 0 {
+		return nil, 0, false
+	}
+
+	for _, k := range daftar {
+		if sisaLimit <= 0 {
+			break
+		}
+		if k.SaldoSen <= 0 {
+			continue
+		}
+		potong := min(k.SaldoSen, sisaLimit)
+		alokasi = append(alokasi, alokasiKasbon{
+			IDKasbon:  k.ID,
+			JumlahSen: potong,
+		})
+		totalKasbonSen += potong
+		sisaLimit -= potong
+	}
+
+	return alokasi, totalKasbonSen, false
 }

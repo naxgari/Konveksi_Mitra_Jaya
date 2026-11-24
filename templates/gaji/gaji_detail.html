@@ -1,0 +1,121 @@
+{{define "content"}}
+<section class="dashboard">
+    <div class="page-head">
+        <h1>Detail Gaji Pekerja #{{.Gaji.IDPekerja}}</h1>
+        <p class="subtitle">
+            {{tgl_indo .Periode.TanggalAwal}}
+            – {{tgl_indo .Periode.TanggalAkhir}}
+        </p>
+    </div>
+
+    <div class="quick-links">
+        <a class="btn btn-light" href="/periode/{{.Periode.ID}}">
+            Kembali ke Periode
+        </a>
+
+        {{if and .Admin (eq .Periode.Status "terbuka") (eq .Gaji.StatusBayar "belum")}}
+        <form
+            method="post"
+            action="/gaji/{{.Gaji.ID}}/bayar"
+            onsubmit="return confirm('Catat pembayaran gaji ini? Setelah dibayar, gaji tidak dapat dihitung ulang.')"
+        >
+            <button class="btn" type="submit">Bayar Gaji</button>
+        </form>
+        {{end}}
+    </div>
+
+    <div class="panel">
+        <div class="panel-row">
+            <span>Gaji bersih</span>
+            <strong>Rp {{.Gaji.GajiBersih}}</strong>
+        </div>
+
+        <div class="panel-row">
+            <span>Status pembayaran</span>
+            {{if eq .Gaji.StatusBayar "dibayar"}}
+                <span class="badge badge-success">Dibayar</span>
+            {{else}}
+                <span class="badge badge-warning">Belum Dibayar</span>
+            {{end}}
+        </div>
+
+        <div class="panel-row">
+            <span>Waktu pembayaran</span>
+            <strong>
+                {{with .Gaji.DibayarPada}}
+                    {{.Format "02 Jan 2006 15:04"}}
+                {{else}}
+                    -
+                {{end}}
+            </strong>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h2>Komponen Gaji</h2>
+
+        <div class="panel-row">
+            <span>Gaji pokok</span>
+            <strong>Rp {{.Gaji.GajiPokok}}</strong>
+        </div>
+        <div class="panel-row">
+            <span>Upah lembur</span>
+            <strong>Rp {{.Gaji.TotalLembur}}</strong>
+        </div>
+        <div class="panel-row">
+            <span>Gaji bruto</span>
+            <strong>Rp {{.Gaji.GajiBruto}}</strong>
+        </div>
+        <div class="panel-row">
+            <span>Potongan keterlambatan</span>
+            <strong>Rp {{.Gaji.PotonganTelat}}</strong>
+        </div>
+        <div class="panel-row">
+            <span>Potongan kasbon</span>
+            <strong>Rp {{.Gaji.TotalPotonganKasbon}}</strong>
+        </div>
+        <div class="panel-row">
+            <span>Koreksi</span>
+            <strong>Rp {{.Gaji.TotalKoreksi}}</strong>
+        </div>
+    </div>
+
+    <h2>Rincian Per Tanggal</h2>
+
+    <div class="table-scroll">
+        <table class="module-table">
+            <thead>
+                <tr>
+                    <th>Tanggal</th>
+                    <th>Upah Acuan</th>
+                    <th>Tarif per Jam</th>
+                    <th>Gaji Pokok</th>
+                    <th>Telat (Menit)</th>
+                    <th>Lembur (Jam)</th>
+                    <th>Upah Lembur</th>
+                    <th>Potongan Telat</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Rincian}}
+                <tr>
+                    <td>{{tgl_indo .Tanggal}}</td>
+                    <td>Rp {{.NominalUpah}}</td>
+                    <td>Rp {{.TarifPerJam}}</td>
+                    <td>Rp {{.NilaiPokok}}</td>
+                    <td>{{.MenitTelat}}</td>
+                    <td>{{.JamLembur}}</td>
+                    <td>Rp {{.NilaiLembur}}</td>
+                    <td>Rp {{.PotonganTelat}}</td>
+                </tr>
+                {{else}}
+                <tr class="empty-row">
+                    <td colspan="8">Tidak ada rincian per tanggal.</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</section>
+{{end}}
+

@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/anggyputra/go-class/internal/middleware"
@@ -27,6 +30,7 @@ type PeriodeDetailPage struct {
 	Gaji           []model.Gaji
 	Pekerja        []model.PekerjaGaji
 	Error          string
+	Pesan          string
 }
 
 type GajiDetailPage struct {
@@ -120,6 +124,7 @@ func (h *PenggajianHandler) renderPeriodeDetail(
 		Gaji:    daftar,
 		Pekerja: pekerja,
 		Error:   pesanError,
+		Pesan:   r.URL.Query().Get("pesan"),
 	})
 }
 
@@ -289,6 +294,55 @@ func (h *PenggajianHandler) HitungDraf(
 		"/gaji/"+strconv.FormatInt(idGaji, 10),
 		http.StatusSeeOther,
 	)
+}
+
+func (h *PenggajianHandler) HitungSemuaDraf(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	pengguna, _ := middleware.PenggunaDariContext(r.Context())
+	if !pengguna.AdalahAdmin() {
+		http.Error(w, "Akses ditolak", http.StatusForbidden)
+		return
+	}
+
+	idPeriode, ok := idDariPath(w, r)
+	if !ok {
+		return
+	}
+
+	pekerja, err := h.GajiSvc.PekerjaPerPeriode(r.Context(), idPeriode)
+	if err != nil {
+		gagal(w, err)
+		return
+	}
+	if len(pekerja) == 0 {
+		h.renderPeriodeDetail(w, r, idPeriode, http.StatusBadRequest, "Tidak ada pekerja yang perlu dihitung pada periode ini")
+		return
+	}
+
+	berhasil := 0
+	var kendala []string
+	for _, p := range pekerja {
+		if _, err := h.GajiSvc.HitungDraf(r.Context(), p.ID, idPeriode, 0, 0); err != nil {
+			if validasi(err) {
+				kendala = append(kendala, fmt.Sprintf("%s: %s", p.Nama, validasiPesan(err)))
+				continue
+			}
+			gagal(w, err)
+			return
+		}
+		berhasil++
+	}
+
+	if len(kendala) > 0 {
+		msg := fmt.Sprintf("Berhasil menghitung %d pekerja. Kendala pada %d pekerja: %s", berhasil, len(kendala), strings.Join(kendala, "; "))
+		h.renderPeriodeDetail(w, r, idPeriode, http.StatusBadRequest, msg)
+		return
+	}
+
+	pesan := fmt.Sprintf("Berhasil menghitung draf gaji untuk semua %d pekerja pada periode ini.", berhasil)
+	http.Redirect(w, r, "/periode/"+strconv.Itoa(idPeriode)+"?pesan="+url.QueryEscape(pesan), http.StatusSeeOther)
 }
 
 

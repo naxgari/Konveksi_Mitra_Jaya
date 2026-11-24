@@ -11,6 +11,9 @@
     {{if .Error}}
     <p class="notice warning" role="alert">{{.Error}}</p>
     {{end}}
+    {{if .Pesan}}
+    <p class="notice">{{.Pesan}}</p>
+    {{end}}
 
     <div class="quick-links">
         <a class="btn btn-light" href="/periode">
@@ -61,7 +64,14 @@
 
     {{if and .Admin (eq .Periode.Status "terbuka")}}
     <div class="panel">
-        <h2>Hitung Draf Gaji</h2>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+            <h2>Hitung Draf Gaji</h2>
+            {{if .Pekerja}}
+            <form method="post" action="/periode/{{.Periode.ID}}/hitung-semua" onsubmit="return confirm('Hitung draf gaji untuk semua {{len .Pekerja}} pekerja pada periode ini sekaligus?')">
+                <button class="btn" type="submit">Hitung Semua Pekerja ({{len .Pekerja}})</button>
+            </form>
+            {{end}}
+        </div>
 
         {{if .Pekerja}}
         <form
@@ -70,7 +80,7 @@
             action="/periode/{{.Periode.ID}}/hitung"
         >
             <label>
-                Pekerja
+                Atau hitung per pekerja
                 <select class="form-control" name="id_pekerja" required>
                     <option value="">Pilih pekerja</option>
                     {{range .Pekerja}}
@@ -86,7 +96,7 @@
             </p>
 
             <div class="dialog-actions">
-                <button class="btn" type="submit">Hitung Draf</button>
+                <button class="btn btn-light" type="submit">Hitung 1 Pekerja</button>
             </div>
         </form>
         {{else}}

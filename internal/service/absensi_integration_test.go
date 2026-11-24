@@ -165,4 +165,33 @@ func TestAbsensiMySQL(t *testing.T) {
 	j2.Tanggal = date("2091-02-06")
 	_, e = s.JadwalBuat(ctx, j2)
 	expectInvalid(e)
+
+	// Uji buat jadwal rentang (Senin–Minggu, lewati Minggu -> 6 jadwal) & hadir normal massal (hanya mengisi belum dicatat).
+	dibuat, e := s.JadwalBuatRentang(ctx, harian, shift, date("2091-03-05"), date("2091-03-11"), true)
+	if e != nil || dibuat != 6 {
+		t.Fatalf("JadwalBuatRentang = (%d, %v), want (6, nil)", dibuat, e)
+	}
+	var idsRentang []int
+	rows, e := db.QueryContext(ctx, `SELECT id_jadwal FROM jadwal_shift WHERE id_pekerja=? AND tanggal BETWEEN '2091-03-05' AND '2091-03-11' ORDER BY tanggal`, harian)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for rows.Next() {
+		var jidRow int
+		if e = rows.Scan(&jidRow); e != nil {
+			rows.Close()
+			t.Fatal(e)
+		}
+		idsRentang = append(idsRentang, jidRow)
+	}
+	rows.Close()
+	dicatat, e := s.AbsensiHadirNormalMassal(ctx, idsRentang)
+	if e != nil || dicatat != 6 {
+		t.Fatalf("AbsensiHadirNormalMassal = (%d, %v), want (6, nil)", dicatat, e)
+	}
+	// Jalankan lagi harus 0 (tidak menimpa absensi yang sudah tercatat).
+	dicatatLagi, e := s.AbsensiHadirNormalMassal(ctx, idsRentang)
+	if e != nil || dicatatLagi != 0 {
+		t.Fatalf("AbsensiHadirNormalMassal ulang = (%d, %v), want (0, nil)", dicatatLagi, e)
+	}
 }

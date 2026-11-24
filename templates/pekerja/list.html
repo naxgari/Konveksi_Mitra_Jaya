@@ -1,0 +1,108 @@
+
+{{define "content"}}
+<div class="page-head clearfix">
+    <h3 class="float-left">Daftar Pekerja</h3>
+    <a href="/pekerja/form" class="btn float-right">
+        + Tambah Pekerja
+    </a>
+</div>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th width="50px">ID</th>
+            <th>Nama Pekerja</th>
+            <th>Jenis Pekerja</th>
+            <th>Jabatan</th>
+            <th>Kontak</th>
+            <th>Tanggal Masuk</th>
+            <th>Tanggal Keluar</th>
+            <th>Status</th>
+            <th>Aksi</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {{range .}}
+        <tr>
+            <td>{{.ID}}</td>
+
+            <td>
+                <a href="/pekerja/{{.ID}}">
+                    {{.Nama}}
+                </a>
+            </td>
+
+            <td>{{.JenisPekerja}}</td>
+
+            <td>{{.Jabatan}}</td>
+
+            <td>
+                {{if .Kontak}}
+                    {{.Kontak}}
+                {{else}}
+                    -
+                {{end}}
+            </td>
+
+            <td>
+                {{.TanggalMasuk.Format "02 Jan 2006"}}
+            </td>
+
+            <td>
+                {{if .TanggalKeluar}}
+                    {{.TanggalKeluar.Format "02 Jan 2006"}}
+                {{else}}
+                    -
+                {{end}}
+            </td>
+
+            <td>
+                {{if .TanggalKeluar}}
+                    <span class="badge">Nonaktif</span>
+                {{else}}
+                    <span class="badge">Aktif</span>
+                {{end}}
+            </td>
+
+            <td>
+                <div class="actions">
+                    <a href="/pekerja/{{.ID}}"
+                       class="btn btn-light btn-sm">
+                        Detail
+                    </a>
+
+                    <a href="/pekerja/{{.ID}}/edit"
+                       class="btn btn-light btn-sm">
+                        Edit
+                    </a>
+
+                    {{if not .TanggalKeluar}}
+                    <form method="POST"
+                          action="/pekerja/{{.ID}}/nonaktif"
+                          onsubmit="return confirm('Yakin ingin menonaktifkan pekerja ini?')">
+
+                        <input type="date"
+                               name="tanggal_keluar"
+                               required>
+
+                        <button type="submit"
+                                class="btn btn-danger btn-sm">
+                            Nonaktifkan
+                        </button>
+                    </form>
+                    {{end}}
+                </div>
+            </td>
+        </tr>
+
+        {{else}}
+        <tr>
+            <td colspan="9" style="text-align: center;">
+                Belum ada data pekerja.
+            </td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{end}}

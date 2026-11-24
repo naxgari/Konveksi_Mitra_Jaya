@@ -49,7 +49,43 @@ func main() {
 	// Modul Contoh Bawaan Template (Produk)
 	produkRepo := &repository.ProdukRepo{DB: db}
 	produkSvc := &service.ProdukService{Repo: produkRepo}
-	produk := &handler.ProdukHandler{Svc: produkSvc, View: view}
+	produk := &handler.ProdukHandler{
+		Svc:  produkSvc,
+		View: view,
+	}
+
+	// =====================================================
+	// 3. Modul Master Pekerja (Cahya)
+	// =====================================================
+
+	pekerjaRepo := &repository.PekerjaRepo{DB: db}
+	pekerjaSvc := &service.PekerjaService{Repo: pekerjaRepo}
+	pekerja := &handler.PekerjaHandler{
+		Svc:  pekerjaSvc,
+		View: view,
+	}
+
+	// =====================================================
+	// 4. Modul Riwayat Upah (Cahya)
+	// =====================================================
+
+	upahRepo := &repository.RiwayatUpahRepo{DB: db}
+
+	upahSvc := &service.RiwayatUpahService{
+		Repo:        upahRepo,
+		PekerjaRepo: pekerjaRepo,
+	}
+
+	upah := &handler.RiwayatUpahHandler{
+		Svc:        upahSvc,
+		PekerjaSvc: pekerjaSvc,
+		View:       view,
+	}
+
+	// =====================================================
+	// 5. Modul Jadwal Shift & Absensi (Falih)
+	// =====================================================
+
 	absensiRepo := &repository.AbsensiRepo{DB: db}
 	absensiSvc := &service.AbsensiService{Repo: absensiRepo}
 	absensi := &handler.AbsensiHandler{Svc: absensiSvc, View: view}
@@ -63,22 +99,214 @@ func main() {
 	for _, path := range []string{"/pekerja", "/kasbon", "/periode", "/koreksi", "/laporan/rekap"} {
 		privateMux.HandleFunc("GET "+path, modul.Tampil)
 	}
-	// Modul Shift dan Absensi milik Falih.
-	privateMux.HandleFunc("GET /jadwal", middleware.RequireRole(model.PeranAdmin, model.PeranPemilik)(absensi.JadwalDaftar))
-	privateMux.HandleFunc("GET /jadwal/form", middleware.RequireRole(model.PeranAdmin)(absensi.JadwalFormTambah))
-	privateMux.HandleFunc("POST /jadwal", middleware.RequireRole(model.PeranAdmin)(absensi.JadwalSimpan))
-	privateMux.HandleFunc("GET /jadwal/{id}/edit", middleware.RequireRole(model.PeranAdmin)(absensi.JadwalFormEdit))
-	privateMux.HandleFunc("POST /jadwal/{id}/edit", middleware.RequireRole(model.PeranAdmin)(absensi.JadwalUpdate))
-	privateMux.HandleFunc("POST /jadwal/{id}/hapus", middleware.RequireRole(model.PeranAdmin)(absensi.JadwalHapus))
-	privateMux.HandleFunc("GET /jadwal/{id}/absensi", middleware.RequireRole(model.PeranAdmin)(absensi.AbsensiForm))
-	privateMux.HandleFunc("POST /jadwal/{id}/absensi", middleware.RequireRole(model.PeranAdmin)(absensi.AbsensiSimpan))
-	privateMux.HandleFunc("GET /absensi/pemeriksaan", middleware.RequireRole(model.PeranAdmin, model.PeranPemilik)(absensi.Pemeriksaan))
-	privateMux.HandleFunc("GET /shift", middleware.RequireRole(model.PeranAdmin, model.PeranPemilik)(absensi.ShiftDaftar))
-	privateMux.HandleFunc("GET /shift/form", middleware.RequireRole(model.PeranAdmin)(absensi.ShiftFormTambah))
-	privateMux.HandleFunc("POST /shift", middleware.RequireRole(model.PeranAdmin)(absensi.ShiftSimpan))
-	privateMux.HandleFunc("GET /shift/{id}/edit", middleware.RequireRole(model.PeranAdmin)(absensi.ShiftFormEdit))
-	privateMux.HandleFunc("POST /shift/{id}/edit", middleware.RequireRole(model.PeranAdmin)(absensi.ShiftUpdate))
-	privateMux.HandleFunc("POST /shift/{id}/hapus", middleware.RequireRole(model.PeranAdmin)(absensi.ShiftHapus))
+
+	// =====================================================
+	// 8. Routing Master Pekerja (Cahya)
+	// =====================================================
+
+	// Admin dan pemilik dapat melihat daftar pekerja.
+	privateMux.HandleFunc(
+		"GET /pekerja",
+		middleware.RequireRole(
+			model.PeranAdmin,
+			model.PeranPemilik,
+		)(pekerja.Daftar),
+	)
+
+	// Admin dan pemilik dapat melihat detail pekerja.
+	privateMux.HandleFunc(
+		"GET /pekerja/{id}",
+		middleware.RequireRole(
+			model.PeranAdmin,
+			model.PeranPemilik,
+		)(pekerja.Detail),
+	)
+
+	// Form tambah pekerja hanya untuk admin.
+	privateMux.HandleFunc(
+		"GET /pekerja/form",
+		middleware.RequireRole(
+			model.PeranAdmin,
+		)(pekerja.FormTambah),
+	)
+
+	// Simpan pekerja baru.
+	privateMux.HandleFunc(
+		"POST /pekerja",
+		middleware.RequireRole(
+			model.PeranAdmin,
+		)(pekerja.Simpan),
+	)
+
+	// Form edit pekerja.
+	privateMux.HandleFunc(
+		"GET /pekerja/{id}/edit",
+		middleware.RequireRole(
+			model.PeranAdmin,
+		)(pekerja.FormEdit),
+	)
+
+	// Update data pekerja.
+	privateMux.HandleFunc(
+		"POST /pekerja/{id}/edit",
+		middleware.RequireRole(
+			model.PeranAdmin,
+		)(pekerja.Update),
+	)
+
+	// Nonaktifkan pekerja tanpa menghapus data.
+	privateMux.HandleFunc(
+		"POST /pekerja/{id}/nonaktif",
+		middleware.RequireRole(
+			model.PeranAdmin,
+		)(pekerja.Nonaktifkan),
+	)
+
+	// =====================================================
+	// 9. Routing Riwayat Upah (Cahya)
+	// =====================================================
+
+	// Admin dan pemilik dapat melihat riwayat upah.
+	privateMux.HandleFunc(
+		"GET /pekerja/{id}/upah",
+		middleware.RequireRole(
+			model.PeranAdmin,
+			model.PeranPemilik,
+		)(upah.Daftar),
+	)
+
+	// Form tambah tarif upah hanya untuk admin.
+	privateMux.HandleFunc(
+		"GET /pekerja/{id}/upah/form",
+		middleware.RequireRole(
+			model.PeranAdmin,
+		)(upah.FormTambah),
+	)
+
+	// Simpan tarif upah baru.
+	privateMux.HandleFunc(
+		"POST /pekerja/{id}/upah",
+		middleware.RequireRole(
+			model.PeranAdmin,
+		)(upah.Simpan),
+	)
+
+	// =====================================================
+	// 10. Routing Shift & Absensi (Falih)
+	// =====================================================
+
+	privateMux.HandleFunc(
+		"GET /jadwal",
+		middleware.RequireRole(
+			model.PeranAdmin,
+			model.PeranPemilik,
+		)(absensi.JadwalDaftar),
+	)
+
+	privateMux.HandleFunc(
+		"GET /jadwal/form",
+		middleware.RequireRole(
+			model.PeranAdmin,
+		)(absensi.JadwalFormTambah),
+	)
+
+	privateMux.HandleFunc(
+		"POST /jadwal",
+		middleware.RequireRole(
+			model.PeranAdmin,
+		)(absensi.JadwalSimpan),
+	)
+
+	privateMux.HandleFunc(
+		"GET /jadwal/{id}/edit",
+		middleware.RequireRole(
+			model.PeranAdmin,
+		)(absensi.JadwalFormEdit),
+	)
+
+	privateMux.HandleFunc(
+		"POST /jadwal/{id}/edit",
+		middleware.RequireRole(
+			model.PeranAdmin,
+		)(absensi.JadwalUpdate),
+	)
+
+	privateMux.HandleFunc(
+		"POST /jadwal/{id}/hapus",
+		middleware.RequireRole(
+			model.PeranAdmin,
+		)(absensi.JadwalHapus),
+	)
+
+	privateMux.HandleFunc(
+		"GET /jadwal/{id}/absensi",
+		middleware.RequireRole(
+			model.PeranAdmin,
+		)(absensi.AbsensiForm),
+	)
+
+	privateMux.HandleFunc(
+		"POST /jadwal/{id}/absensi",
+		middleware.RequireRole(
+			model.PeranAdmin,
+		)(absensi.AbsensiSimpan),
+	)
+
+	privateMux.HandleFunc(
+		"GET /absensi/pemeriksaan",
+		middleware.RequireRole(
+			model.PeranAdmin,
+			model.PeranPemilik,
+		)(absensi.Pemeriksaan),
+	)
+
+	privateMux.HandleFunc(
+		"GET /shift",
+		middleware.RequireRole(
+			model.PeranAdmin,
+			model.PeranPemilik,
+		)(absensi.ShiftDaftar),
+	)
+
+	privateMux.HandleFunc(
+		"GET /shift/form",
+		middleware.RequireRole(
+			model.PeranAdmin,
+		)(absensi.ShiftFormTambah),
+	)
+
+	privateMux.HandleFunc(
+		"POST /shift",
+		middleware.RequireRole(
+			model.PeranAdmin,
+		)(absensi.ShiftSimpan),
+	)
+
+	privateMux.HandleFunc(
+		"GET /shift/{id}/edit",
+		middleware.RequireRole(
+			model.PeranAdmin,
+		)(absensi.ShiftFormEdit),
+	)
+
+	privateMux.HandleFunc(
+		"POST /shift/{id}/edit",
+		middleware.RequireRole(
+			model.PeranAdmin,
+		)(absensi.ShiftUpdate),
+	)
+
+	privateMux.HandleFunc(
+		"POST /shift/{id}/hapus",
+		middleware.RequireRole(
+			model.PeranAdmin,
+		)(absensi.ShiftHapus),
+	)
+
+	// =====================================================
+	// 11. Logout
+	// =====================================================
+
 	privateMux.HandleFunc("POST /logout", auth.Logout)
 
 	// Route Contoh Produk (Referensi Anggota Tim)

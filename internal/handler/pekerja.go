@@ -13,10 +13,13 @@ import (
 
 // PekerjaForm menyimpan data untuk halaman formulir.
 type PekerjaForm struct {
-	Judul   string
-	Action  string
-	Pekerja model.Pekerja
-	Error   string
+	Judul          string
+	Action         string
+	Pekerja        model.Pekerja
+	ModeEdit       bool
+	UpahAwal       string
+	KeteranganUpah string
+	Error          string
 }
 
 // PekerjaHandler menangani permintaan HTTP modul pekerja.
@@ -60,17 +63,26 @@ func (h *PekerjaHandler) FormTambah(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Simpan memproses data pekerja baru.
+// Simpan memproses data pekerja baru beserta upah awalnya.
 func (h *PekerjaHandler) Simpan(w http.ResponseWriter, r *http.Request) {
+	upahAwal := strings.TrimSpace(r.PostFormValue("upah_awal"))
+	ketUpahStr := strings.TrimSpace(r.PostFormValue("keterangan_upah"))
+	var ketUpah *string
+	if ketUpahStr != "" {
+		ketUpah = &ketUpahStr
+	}
+
 	p, err := pekerjaDariForm(r)
 	if err != nil {
 		var ve *service.ValidasiError
 		if errors.As(err, &ve) {
 			h.View.TampilStatus(w, http.StatusBadRequest, "pekerja/form.html", PekerjaForm{
-				Judul:   "Form Tambah Data Pekerja",
-				Action:  "/pekerja",
-				Pekerja: p,
-				Error:   ve.Pesan,
+				Judul:          "Form Tambah Data Pekerja",
+				Action:         "/pekerja",
+				Pekerja:        p,
+				UpahAwal:       upahAwal,
+				KeteranganUpah: ketUpahStr,
+				Error:          ve.Pesan,
 			})
 			return
 		}
@@ -78,14 +90,16 @@ func (h *PekerjaHandler) Simpan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := h.Svc.Buat(r.Context(), p); err != nil {
+	if _, err := h.Svc.BuatDenganUpahAwal(r.Context(), p, upahAwal, ketUpah); err != nil {
 		var ve *service.ValidasiError
 		if errors.As(err, &ve) {
 			h.View.TampilStatus(w, http.StatusBadRequest, "pekerja/form.html", PekerjaForm{
-				Judul:   "Form Tambah Data Pekerja",
-				Action:  "/pekerja",
-				Pekerja: p,
-				Error:   ve.Pesan,
+				Judul:          "Form Tambah Data Pekerja",
+				Action:         "/pekerja",
+				Pekerja:        p,
+				UpahAwal:       upahAwal,
+				KeteranganUpah: ketUpahStr,
+				Error:          ve.Pesan,
 			})
 			return
 		}
@@ -110,9 +124,10 @@ func (h *PekerjaHandler) FormEdit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.View.Tampil(w, "pekerja/form.html", PekerjaForm{
-		Judul:   "Form Edit Data Pekerja",
-		Action:  fmt.Sprintf("/pekerja/%d/edit", id),
-		Pekerja: p,
+		Judul:    "Form Edit Data Pekerja",
+		Action:   fmt.Sprintf("/pekerja/%d/edit", id),
+		Pekerja:  p,
+		ModeEdit: true,
 	})
 }
 
@@ -130,10 +145,11 @@ func (h *PekerjaHandler) Update(w http.ResponseWriter, r *http.Request) {
 		var ve *service.ValidasiError
 		if errors.As(err, &ve) {
 			h.View.TampilStatus(w, http.StatusBadRequest, "pekerja/form.html", PekerjaForm{
-				Judul:   "Form Edit Data Pekerja",
-				Action:  action,
-				Pekerja: p,
-				Error:   ve.Pesan,
+				Judul:    "Form Edit Data Pekerja",
+				Action:   action,
+				Pekerja:  p,
+				ModeEdit: true,
+				Error:    ve.Pesan,
 			})
 			return
 		}
@@ -145,10 +161,11 @@ func (h *PekerjaHandler) Update(w http.ResponseWriter, r *http.Request) {
 		var ve *service.ValidasiError
 		if errors.As(err, &ve) {
 			h.View.TampilStatus(w, http.StatusBadRequest, "pekerja/form.html", PekerjaForm{
-				Judul:   "Form Edit Data Pekerja",
-				Action:  action,
-				Pekerja: p,
-				Error:   ve.Pesan,
+				Judul:    "Form Edit Data Pekerja",
+				Action:   action,
+				Pekerja:  p,
+				ModeEdit: true,
+				Error:    ve.Pesan,
 			})
 			return
 		}

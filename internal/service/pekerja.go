@@ -47,6 +47,55 @@ func (s *PekerjaService) Buat(ctx context.Context, p model.Pekerja) (int64, erro
 	return s.Repo.Tambah(ctx, p)
 }
 
+// BuatDenganUpahAwal menambahkan pekerja baru sekaligus mencatat tarif upah awal
+// di tabel riwayat_upah (berlaku_mulai = tanggal_masuk) dalam satu transaksi.
+func (s *PekerjaService) BuatDenganUpahAwal(
+	ctx context.Context,
+	p model.Pekerja,
+	nominalUpah string,
+	keterangan *string,
+) (int64, error) {
+	p.Nama = strings.TrimSpace(p.Nama)
+	p.JenisPekerja = strings.ToLower(strings.TrimSpace(p.JenisPekerja))
+	p.Jabatan = strings.TrimSpace(p.Jabatan)
+
+	if err := validasiPekerja(p); err != nil {
+		return 0, err
+	}
+
+	nominalUpah = strings.TrimSpace(nominalUpah)
+	if !polaNominalUpah.MatchString(nominalUpah) {
+		return 0, &ValidasiError{
+			Pesan: "Upah awal harus berupa angka positif dengan maksimal 2 angka desimal",
+		}
+	}
+	if nominalUpah == "0" || nominalUpah == "0.0" || nominalUpah == "0.00" {
+		return 0, &ValidasiError{
+			Pesan: "Upah awal harus lebih dari nol",
+		}
+	}
+
+	ketDefault := "Tarif upah awal"
+	if keterangan != nil {
+		ket := strings.TrimSpace(*keterangan)
+		if utf8.RuneCountInString(ket) > 255 {
+			return 0, &ValidasiError{
+				Pesan: "Keterangan upah awal maksimal 255 karakter",
+			}
+		}
+		if ket != "" {
+			keterangan = &ket
+		} else {
+			keterangan = &ketDefault
+		}
+	} else {
+		keterangan = &ketDefault
+	}
+
+	p.TanggalKeluar = nil
+	return s.Repo.TambahDenganUpahAwal(ctx, p, nominalUpah, keterangan)
+}
+
 // Ubah memperbarui data pekerja setelah validasi.
 func (s *PekerjaService) Ubah(ctx context.Context, p model.Pekerja) error {
 	if p.ID <= 0 {

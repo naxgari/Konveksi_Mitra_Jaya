@@ -119,6 +119,58 @@ func (r *PekerjaRepo) Tambah(ctx context.Context, p model.Pekerja) (int64, error
 	return id, nil
 }
 
+// TambahDenganUpahAwal menyimpan data pekerja baru beserta baris awal riwayat_upah dalam satu transaksi (AB 02).
+func (r *PekerjaRepo) TambahDenganUpahAwal(
+	ctx context.Context,
+	p model.Pekerja,
+	nominalUpah string,
+	keterangan *string,
+) (int64, error) {
+	tx, err := r.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("mulai transaksi tambah pekerja: %w", err)
+	}
+	defer tx.Rollback()
+
+	tanggalMasuk := p.TanggalMasuk.Format("2006-01-02")
+	res, err := tx.ExecContext(ctx,
+		`INSERT INTO pekerja
+		(nama, jenis_pekerja, jabatan, kontak, tanggal_masuk, tanggal_keluar)
+		VALUES (?, ?, ?, ?, ?, ?)`,
+		p.Nama,
+		p.JenisPekerja,
+		p.Jabatan,
+		p.Kontak,
+		tanggalMasuk,
+		formatTanggalPtr(p.TanggalKeluar),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("tambah pekerja: %w", err)
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("ambil ID pekerja baru: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO riwayat_upah (id_pekerja, berlaku_mulai, nominal, keterangan)
+		VALUES (?, ?, ?, ?)`,
+		id,
+		tanggalMasuk,
+		nominalUpah,
+		keterangan,
+	); err != nil {
+		return 0, fmt.Errorf("tambah riwayat upah awal: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit tambah pekerja dan upah awal: %w", err)
+	}
+
+	return id, nil
+}
+
 // Ubah memperbarui data pekerja berdasarkan ID.
 func (r *PekerjaRepo) Ubah(ctx context.Context, p model.Pekerja) error {
 	res, err := r.DB.ExecContext(ctx,

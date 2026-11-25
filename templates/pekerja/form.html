@@ -88,6 +88,38 @@
             required>
     </div>
 
+    {{if not .ModeEdit}}
+    <div class="form-group">
+        <label for="upah_awal">Upah Awal (Rp)</label>
+        <input
+            type="number"
+            id="upah_awal"
+            name="upah_awal"
+            class="form-control"
+            min="0.01"
+            max="9999999999999.99"
+            step="0.01"
+            value="{{.UpahAwal}}"
+            placeholder="Contoh: 120000 (harian) atau 3100000 (bulanan)"
+            required>
+        <div class="form-hint">Otomatis disimpan sebagai baris pertama pada Riwayat Upah (berlaku mulai Tanggal Masuk). Kenaikan/perubahan upah selanjutnya tetap dicatat melalui menu Riwayat Upah (AB 02).</div>
+    </div>
+
+    <div class="form-group">
+        <label for="keterangan_upah">Keterangan Upah Awal (opsional)</label>
+        <input
+            type="text"
+            id="keterangan_upah"
+            name="keterangan_upah"
+            class="form-control"
+            maxlength="255"
+            value="{{.KeteranganUpah}}"
+            placeholder="Contoh: Tarif upah awal">
+    </div>
+    {{else}}
+    <p class="notice" style="margin-bottom:16px;">Untuk mengubah nominal upah (kenaikan UMK/jabatan), gunakan menu <strong>Riwayat Upah</strong> pada halaman detail pekerja agar riwayat penggajian lama tetap terjaga (AB 02).</p>
+    {{end}}
+
     <div class="form-group">
         <button type="submit" class="btn">
             Simpan Data

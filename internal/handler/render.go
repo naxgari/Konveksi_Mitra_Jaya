@@ -8,10 +8,15 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/anggyputra/go-class/internal/model"
 )
+
+// =====================================================
+// 1. Fungsi Format Rupiah
+// =====================================================
 
 // rupiah memformat angka int jadi "Rp39.000.000"
 func rupiah(n int) string {
@@ -19,24 +24,89 @@ func rupiah(n int) string {
 	if negatif {
 		n = -n
 	}
+
 	s := strconv.Itoa(n)
 	hasil := ""
+
 	for i, c := range s {
 		if i > 0 && (len(s)-i)%3 == 0 {
 			hasil += "."
 		}
 		hasil += string(c)
 	}
+
 	if negatif {
 		return "-Rp" + hasil
 	}
+
 	return "Rp" + hasil
 }
 
-// rupiahFloat memformat angka desimal float64 (dibulatkan ke rupiah terdekat) jadi "Rp150.000"
+// rupiahFloat memformat angka desimal float64
+// (dibulatkan ke rupiah terdekat) jadi "Rp150.000"
 func rupiahFloat(n float64) string {
 	return rupiah(int(math.Round(n)))
 }
+
+// rupiahUpah memformat nominal DECIMAL dari MySQL
+// tanpa mengubahnya menjadi float64.
+//
+// Contoh:
+// "100000.00"  -> "Rp100.000"
+// "125000.00"  -> "Rp125.000"
+// "150000.50"  -> "Rp150.000,50"
+// "1000000.00" -> "Rp1.000.000"
+func rupiahUpah(n string) string {
+	n = strings.TrimSpace(n)
+
+	if n == "" {
+		return "-"
+	}
+
+	negatif := strings.HasPrefix(n, "-")
+
+	if negatif {
+		n = strings.TrimPrefix(n, "-")
+	}
+
+	bagian := strings.SplitN(n, ".", 2)
+	angka := bagian[0]
+
+	hasil := ""
+
+	for i, c := range angka {
+		if i > 0 && (len(angka)-i)%3 == 0 {
+			hasil += "."
+		}
+		hasil += string(c)
+	}
+
+	hasil = "Rp" + hasil
+
+	// Tambahkan desimal hanya jika bukan nol.
+	if len(bagian) == 2 &&
+		strings.Trim(bagian[1], "0") != "" {
+
+		desimal := bagian[1]
+
+		// Standarkan menjadi dua angka desimal.
+		if len(desimal) == 1 {
+			desimal += "0"
+		}
+
+		hasil += "," + desimal
+	}
+
+	if negatif {
+		return "-" + hasil
+	}
+
+	return hasil
+}
+
+// =====================================================
+// 2. Fungsi Format Tanggal Indonesia
+// =====================================================
 
 var namaBulanIndo = [...]string{
 	"", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
@@ -63,20 +133,35 @@ func addOne(n int) int {
 var funcs = template.FuncMap{
 	"rupiah":       rupiah,
 	"rupiah_float": rupiahFloat,
+	"rupiah_upah":  rupiahUpah,
 	"tgl_indo":     tglIndo,
 	"add_one":      addOne,
 	"currentUser":  func() *model.Pengguna { return nil },
 }
 
+// =====================================================
+// 4. Interface Pengguna Aktif
+// =====================================================
+
 type penggunaCarrier interface {
 	CurrentPengguna() *model.Pengguna
 }
+
+// =====================================================
+// 5. Struktur Renderer
+// =====================================================
 
 type Renderer struct {
 	tpl map[string]*template.Template
 }
 
+// =====================================================
+// 6. Inisialisasi Renderer
+// =====================================================
+
 func NewRenderer() *Renderer {
+
+	// Template wajib aplikasi.
 	halamanWajib := []string{
 		"home.html",
 		"modul.html",
@@ -88,23 +173,37 @@ func NewRenderer() *Renderer {
 		"produk/detail.html",
 	}
 
-	// Daftar template modul Anggota 2 s.d. 5 (otomatis di-parse begitu file HTML-nya dibuat)
+	// Template modul anggota tim.
+	// File akan di-parse apabila sudah tersedia.
 	halamanModulTim := []string{
+
+		// Modul Master Pekerja (Cahya)
 		"pekerja/list.html",
 		"pekerja/form.html",
 		"pekerja/detail.html",
+
+		// Modul Riwayat Upah (Cahya)
+		"pekerja/upah_list.html",
+		"pekerja/upah_form.html",
+
+		// Modul Jadwal Shift & Absensi (Falih)
 		"absensi/jadwal_list.html",
 		"absensi/jadwal_form.html",
 		"absensi/absensi_form.html",
 		"absensi/pemeriksaan.html",
 		"absensi/shift_list.html",
 		"absensi/shift_form.html",
+
+		// Modul Penggajian
 		"gaji/periode_list.html",
 		"gaji/periode_form.html",
 		"gaji/periode_detail.html",
 		"gaji/gaji_detail.html",
+
+		// Modul Kasbon, Koreksi, dan Laporan
 		"kasbon/kasbon_list.html",
 		"kasbon/kasbon_form.html",
+		"kasbon/kasbon_detail.html",
 		"kasbon/koreksi_list.html",
 		"kasbon/koreksi_form.html",
 		"kasbon/slip.html",
@@ -136,6 +235,11 @@ func parseDenganLayout(file string) *template.Template {
 // Tampil me-render template ke buffer dulu supaya error template tidak menghasilkan halaman setengah jadi.
 // Jika response writer berasal dari middleware RequireLogin, fungsi template `currentUser` otomatis berisi data pengguna aktif.
 func (rd *Renderer) Tampil(w http.ResponseWriter, file string, data any) {
+	rd.TampilStatus(w, http.StatusOK, file, data)
+}
+
+// TampilStatus me-render template ke buffer terlebih dahulu lalu mengirim status HTTP dan Content-Type secara eksplisit.
+func (rd *Renderer) TampilStatus(w http.ResponseWriter, status int, file string, data any) {
 	baseTpl, ok := rd.tpl[file]
 	if !ok {
 		log.Printf("template %s belum terdaftar", file)
@@ -163,6 +267,10 @@ func (rd *Renderer) Tampil(w http.ResponseWriter, file string, data any) {
 		log.Printf("render %s: %v", file, err)
 		http.Error(w, "Terjadi kesalahan pada server", http.StatusInternalServerError)
 		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if status != http.StatusOK {
+		w.WriteHeader(status)
 	}
 	_, _ = buf.WriteTo(w)
 }

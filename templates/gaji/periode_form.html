@@ -1,0 +1,73 @@
+{{define "content"}}
+<section class="dashboard">
+    <div class="page-head">
+        <h1>Buat Periode Gaji</h1>
+        <p class="subtitle">
+            Tentukan rentang periode dan rencana pembayaran gaji.
+        </p>
+    </div>
+
+    {{if .Error}}
+    <p class="notice warning" role="alert">{{.Error}}</p>
+    {{end}}
+
+    <form class="panel dialog-form" method="post" action="/periode">
+        <label>
+            Jenis periode
+            <select class="form-control" name="jenis" required>
+                <option value="mingguan" {{if eq .Jenis "mingguan"}}selected{{end}}>
+                    Mingguan — pekerja harian
+                </option>
+                <option value="bulanan" {{if eq .Jenis "bulanan"}}selected{{end}}>
+                    Bulanan — pekerja bulanan
+                </option>
+            </select>
+        </label>
+
+        <label>
+            Tanggal awal
+            <input
+                class="form-control"
+                type="date"
+                name="tanggal_awal"
+                value="{{.TanggalAwal}}"
+                required
+            >
+        </label>
+
+        <label>
+            Tanggal akhir
+            <input
+                class="form-control"
+                type="date"
+                name="tanggal_akhir"
+                value="{{.TanggalAkhir}}"
+                required
+            >
+        </label>
+
+        <label>
+            Rencana tanggal bayar
+            <input
+                class="form-control"
+                type="date"
+                name="tanggal_bayar_rencana"
+                value="{{.TanggalBayarRencana}}"
+                required
+            >
+        </label>
+
+        <p class="dialog-hint">
+            Periode mingguan berlangsung Senin–Sabtu dan dibayar pada Sabtu
+            akhir periode. Periode bulanan berlangsung dari tanggal 1 sampai
+            hari terakhir bulan.
+        </p>
+
+        <div class="dialog-actions">
+            <a class="btn btn-light" href="/periode">Batal</a>
+            <button class="btn" type="submit">Simpan Periode</button>
+        </div>
+    </form>
+</section>
+{{end}}
+

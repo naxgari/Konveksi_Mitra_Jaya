@@ -1,0 +1,111 @@
+
+{{define "content"}}
+<div class="page-head clearfix">
+    <h3 class="float-left">Detail Pekerja</h3>
+
+    <a href="/pekerja" class="btn btn-light float-right">
+        Kembali
+    </a>
+</div>
+
+<table class="table">
+    <tbody>
+        <tr>
+            <th width="200px">ID Pekerja</th>
+            <td>{{.ID}}</td>
+        </tr>
+
+        <tr>
+            <th>Nama Pekerja</th>
+            <td>{{.Nama}}</td>
+        </tr>
+
+        <tr>
+            <th>Jenis Pekerja</th>
+            <td>{{.JenisPekerja}}</td>
+        </tr>
+
+        <tr>
+            <th>Jabatan</th>
+            <td>{{.Jabatan}}</td>
+        </tr>
+
+        <tr>
+            <th>Kontak</th>
+            <td>
+                {{if .Kontak}}
+                    {{.Kontak}}
+                {{else}}
+                    -
+                {{end}}
+            </td>
+        </tr>
+
+        <tr>
+            <th>Tanggal Masuk</th>
+            <td>
+                {{tgl_indo .TanggalMasuk}}
+            </td>
+        </tr>
+
+        <tr>
+            <th>Tanggal Keluar</th>
+            <td>
+                {{if .TanggalKeluar}}
+                    {{tgl_indo .TanggalKeluar}}
+                {{else}}
+                    -
+                {{end}}
+            </td>
+        </tr>
+
+        <tr>
+            <th>Status Pekerja</th>
+            <td>
+                {{if .TanggalKeluar}}
+                    <span class="badge badge-danger">Nonaktif</span>
+                {{else}}
+                    <span class="badge badge-success">Aktif</span>
+                {{end}}
+            </td>
+        </tr>
+
+        <tr>
+            <th>Data Dibuat</th>
+            <td>
+                {{tgl_indo .CreatedAt}} {{.CreatedAt.Format "15:04"}}
+            </td>
+        </tr>
+
+        <tr>
+            <th>Terakhir Diperbarui</th>
+            <td>
+                {{if .UpdatedAt}}
+                    {{tgl_indo .UpdatedAt}} {{.UpdatedAt.Format "15:04"}}
+                {{else}}
+                    -
+                {{end}}
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="actions">
+    {{if and currentUser currentUser.AdalahAdmin}}
+    <a href="/pekerja/{{.ID}}/edit"
+       class="btn btn-light">
+        Edit Pekerja
+    </a>
+    {{end}}
+
+    <a href="/pekerja/{{.ID}}/upah"
+       class="btn">
+        Riwayat Upah
+    </a>
+
+    <a href="/pekerja"
+       class="btn btn-light">
+        Kembali ke Daftar
+    </a>
+</div>
+{{end}}

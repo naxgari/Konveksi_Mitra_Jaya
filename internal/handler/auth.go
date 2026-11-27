@@ -54,19 +54,21 @@ func (h *AuthHandler) ProsesLogin(w http.ResponseWriter, r *http.Request) {
 
 	sesi, err := h.Svc.Login(r.Context(), username, password)
 	if err != nil {
+		status := http.StatusInternalServerError
 		pesan := "Terjadi kesalahan pada server"
 		var ve *service.ValidasiError
 		switch {
 		case errors.As(err, &ve):
+			status = http.StatusBadRequest
 			pesan = ve.Pesan
 		case errors.Is(err, model.ErrKredensialSalah):
+			status = http.StatusUnauthorized
 			pesan = "Username atau password yang Anda masukkan salah."
 		default:
 			log.Printf("error login: %v", err)
 		}
 
-		w.WriteHeader(http.StatusUnauthorized)
-		h.View.Tampil(w, "auth/login.html", LoginPageData{
+		h.View.TampilStatus(w, status, "auth/login.html", LoginPageData{
 			Error:    pesan,
 			Username: username,
 		})
@@ -112,8 +114,7 @@ func (h *AuthHandler) ProsesRegister(w http.ResponseWriter, r *http.Request) {
 			log.Printf("error register: %v", err)
 		}
 
-		w.WriteHeader(http.StatusBadRequest)
-		h.View.Tampil(w, "auth/register.html", RegisterPageData{
+		h.View.TampilStatus(w, http.StatusBadRequest, "auth/register.html", RegisterPageData{
 			Error:       pesan,
 			Username:    in.Username,
 			NamaLengkap: in.NamaLengkap,

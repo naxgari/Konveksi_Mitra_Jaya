@@ -1,0 +1,18 @@
+{{define "content"}}
+<div class="dashboard module-page">
+  <h1>Catat Kasbon</h1><p class="subtitle">Catat pinjaman pekerja. Pemotongan akan dihitung saat komponen gaji diproses.</p>
+  {{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
+  <form method="post" action="/kasbon" class="form-card">
+    <label>Pekerja *
+      <select class="form-control" name="id_pekerja" required>
+        <option value="">Pilih pekerja</option>{{range .Pekerja}}<option value="{{.ID}}" {{if eq (printf "%d" .ID) $.IDPekerja}}selected{{end}}>{{.Nama}} · {{.Jenis}}</option>{{end}}
+      </select>
+    </label>
+    <label>Tanggal pengambilan *<input class="form-control" type="date" name="tanggal" value="{{.Tanggal}}" required></label>
+    <label>Jumlah (Rp) *<input class="form-control" type="number" name="jumlah" min="0.01" max="9999999999999.99" step="0.01" value="{{.Jumlah}}" required></label>
+    <label>Keterangan<input class="form-control" type="text" name="keterangan" maxlength="255" value="{{.Keterangan}}"></label>
+    <div class="form-actions"><a class="btn btn-light" href="/kasbon">Batal</a><button class="btn" type="submit">Simpan kasbon</button></div>
+  </form>
+</div>
+<style>.form-card{max-width:620px;display:grid;gap:16px;padding:24px;background:#fff;border:1px solid #e2e8f0;border-radius:8px}.form-card label{display:grid;gap:6px;font-weight:600}.form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}</style>
+{{end}}

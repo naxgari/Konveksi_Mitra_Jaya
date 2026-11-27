@@ -221,8 +221,15 @@ func (t *AbsensiTx) HapusJadwal(ctx context.Context, id int) error {
 	_, e := t.tx.ExecContext(ctx, `DELETE FROM jadwal_shift WHERE id_jadwal=?`, id)
 	return e
 }
+func formatJamSQL(t *time.Time) any {
+	if t == nil {
+		return nil
+	}
+	return t.Format("2006-01-02 15:04:05")
+}
+
 func (t *AbsensiTx) SimpanAbsensi(ctx context.Context, a model.Absensi) error {
-	_, e := t.tx.ExecContext(ctx, `INSERT INTO absensi(id_jadwal,status_kehadiran,jam_masuk,jam_keluar,menit_terlambat,menit_lembur,keterangan) VALUES(?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE status_kehadiran=VALUES(status_kehadiran),jam_masuk=VALUES(jam_masuk),jam_keluar=VALUES(jam_keluar),menit_terlambat=VALUES(menit_terlambat),menit_lembur=VALUES(menit_lembur),keterangan=VALUES(keterangan)`, a.IDJadwal, a.Status, a.JamMasuk, a.JamKeluar, a.MenitTerlambat, a.MenitLembur, a.Keterangan)
+	_, e := t.tx.ExecContext(ctx, `INSERT INTO absensi(id_jadwal,status_kehadiran,jam_masuk,jam_keluar,menit_terlambat,menit_lembur,keterangan) VALUES(?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE status_kehadiran=VALUES(status_kehadiran),jam_masuk=VALUES(jam_masuk),jam_keluar=VALUES(jam_keluar),menit_terlambat=VALUES(menit_terlambat),menit_lembur=VALUES(menit_lembur),keterangan=VALUES(keterangan)`, a.IDJadwal, a.Status, formatJamSQL(a.JamMasuk), formatJamSQL(a.JamKeluar), a.MenitTerlambat, a.MenitLembur, a.Keterangan)
 	if e != nil {
 		return fmt.Errorf("simpan absensi: %w", e)
 	}

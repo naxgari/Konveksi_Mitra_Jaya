@@ -25,9 +25,10 @@ type JadwalPage struct {
 	Error, Pesan                string
 }
 type JadwalFormPage struct {
-	Judul, Subjudul, Action, FormPekerja, FormShift, Tanggal, Error string
-	Pekerja                                                         []model.PekerjaJadwal
-	Shift                                                           []model.Shift
+	Judul, Subjudul, Action, FormPekerja, FormShift, Tanggal, TanggalAkhir, Error string
+	LewatiMinggu, ModeEdit                                                        bool
+	Pekerja                                                                       []model.PekerjaJadwal
+	Shift                                                                         []model.Shift
 }
 type AbsensiFormPage struct {
 	Judul, Action, Status, JamMasuk, JamKeluar, Keterangan, Error string
@@ -42,12 +43,18 @@ type ShiftFormPage struct{ Judul, Action, Nama, JamMulai, JamSelesai, Error stri
 type PemeriksaanPage struct {
 	Admin                                                  bool
 	Jadwal                                                 []model.JadwalShift
+	BelumDicatatIDs                                        []int
 	Mulai, Akhir, FilterPekerja, FilterShift, FilterStatus string
+	Error, Pesan                                           string
 	Pekerja                                                []model.PekerjaJadwal
 	Shift                                                  []model.Shift
 }
 
 func (h *AbsensiHandler) JadwalDaftar(w http.ResponseWriter, r *http.Request) {
+	h.renderJadwalDaftar(w, r, http.StatusOK, "")
+}
+
+func (h *AbsensiHandler) renderJadwalDaftar(w http.ResponseWriter, r *http.Request, status int, pesanError string) {
 	user, _ := middleware.PenggunaDariContext(r.Context())
 	if !user.AdalahAdmin() && !user.AdalahPemilik() {
 		http.Error(w, "Akses ditolak", http.StatusForbidden)
@@ -68,14 +75,14 @@ func (h *AbsensiHandler) JadwalDaftar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
-	p := JadwalPage{Admin: user.AdalahAdmin(), Pekerja: ps, Mulai: q.Get("mulai"), Akhir: q.Get("akhir"), FilterPekerja: q.Get("pekerja")}
+	p := JadwalPage{Admin: user.AdalahAdmin(), Pekerja: ps, Mulai: q.Get("mulai"), Akhir: q.Get("akhir"), FilterPekerja: q.Get("pekerja"), Error: pesanError, Pesan: q.Get("pesan")}
 	for _, j := range js {
 		if !dalamFilter(j, q) || !filterPekerja(j, q) {
 			continue
 		}
 		p.Jadwal = append(p.Jadwal, j)
 	}
-	h.View.Tampil(w, "absensi/jadwal_list.html", p)
+	h.View.TampilStatus(w, status, "absensi/jadwal_list.html", p)
 }
 func (h *AbsensiHandler) JadwalFormTambah(w http.ResponseWriter, r *http.Request) {
 	h.jadwalForm(w, r, model.JadwalShift{}, "")
@@ -105,10 +112,10 @@ func (h *AbsensiHandler) jadwalForm(w http.ResponseWriter, r *http.Request, j mo
 	if !j.Tanggal.IsZero() {
 		tanggal = j.Tanggal.Format("2006-01-02")
 	}
-	h.jadwalFormValues(w, r, j, msg, pekerja, shift, tanggal)
+	h.jadwalFormValues(w, r, http.StatusOK, j, msg, pekerja, shift, tanggal, "", true)
 }
 
-func (h *AbsensiHandler) jadwalFormValues(w http.ResponseWriter, r *http.Request, j model.JadwalShift, msg, pekerja, shift, tanggal string) {
+func (h *AbsensiHandler) jadwalFormValues(w http.ResponseWriter, r *http.Request, status int, j model.JadwalShift, msg, pekerja, shift, tanggal, tanggalAkhir string, lewatiMinggu bool) {
 	ps, e := h.Svc.PekerjaDaftar(r.Context())
 	if e != nil {
 		gagal(w, e)
@@ -121,11 +128,19 @@ func (h *AbsensiHandler) jadwalFormValues(w http.ResponseWriter, r *http.Request
 	}
 	act := "/jadwal"
 	title := "Tempatkan Shift"
-	if j.ID > 0 {
+	sub := "Tambahkan jadwal untuk 1 hari atau rentang beberapa hari sekaligus (mis. Senin–Sabtu)."
+	modeEdit := j.ID > 0
+	if modeEdit {
 		act = "/jadwal/" + strconv.Itoa(j.ID) + "/edit"
 		title = "Edit Jadwal"
+		sub = "Ubah penempatan shift pada tanggal jadwal."
 	}
-	h.View.Tampil(w, "absensi/jadwal_form.html", JadwalFormPage{Judul: title, Subjudul: "Jadwal kerja", Action: act, FormPekerja: pekerja, FormShift: shift, Tanggal: tanggal, Pekerja: ps, Shift: ss, Error: msg})
+	h.View.TampilStatus(w, status, "absensi/jadwal_form.html", JadwalFormPage{
+		Judul: title, Subjudul: sub, Action: act,
+		FormPekerja: pekerja, FormShift: shift, Tanggal: tanggal, TanggalAkhir: tanggalAkhir,
+		LewatiMinggu: lewatiMinggu, ModeEdit: modeEdit,
+		Pekerja: ps, Shift: ss, Error: msg,
+	})
 }
 func (h *AbsensiHandler) JadwalSimpan(w http.ResponseWriter, r *http.Request) {
 	h.jadwalMutasi(w, r, false)
@@ -144,43 +159,53 @@ func (h *AbsensiHandler) jadwalMutasi(w http.ResponseWriter, r *http.Request, ed
 	}
 	pekerja := r.PostFormValue("pekerja")
 	shift := r.PostFormValue("shift")
-	tanggal := r.PostFormValue("tanggal")
+	tanggal := strings.TrimSpace(r.PostFormValue("tanggal"))
+	tanggalAkhir := strings.TrimSpace(r.PostFormValue("tanggal_akhir"))
+	lewatiMinggu := r.PostFormValue("lewati_minggu") == "1"
 	var parseErr error
 	j.IDPekerja, parseErr = strconv.Atoi(pekerja)
 	if parseErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		h.jadwalFormValues(w, r, j, "Pilih pekerja yang valid", pekerja, shift, tanggal)
+		h.jadwalFormValues(w, r, http.StatusBadRequest, j, "Pilih pekerja yang valid", pekerja, shift, tanggal, tanggalAkhir, lewatiMinggu)
 		return
 	}
 	j.IDShift, parseErr = strconv.Atoi(shift)
 	if parseErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		h.jadwalFormValues(w, r, j, "Pilih shift yang valid", pekerja, shift, tanggal)
+		h.jadwalFormValues(w, r, http.StatusBadRequest, j, "Pilih shift yang valid", pekerja, shift, tanggal, tanggalAkhir, lewatiMinggu)
 		return
 	}
 	parsedDate, dateErr := time.Parse("2006-01-02", tanggal)
 	j.Tanggal = parsedDate
 	if dateErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		h.jadwalFormValues(w, r, j, "Tanggal tidak valid", pekerja, shift, tanggal)
+		h.jadwalFormValues(w, r, http.StatusBadRequest, j, "Tanggal mulai tidak valid", pekerja, shift, tanggal, tanggalAkhir, lewatiMinggu)
 		return
 	}
 	var err error
+	pesan := "Jadwal berhasil disimpan."
 	if edit {
 		err = h.Svc.JadwalUbah(r.Context(), j)
+	} else if tanggalAkhir != "" && tanggalAkhir != tanggal {
+		parsedEnd, endErr := time.Parse("2006-01-02", tanggalAkhir)
+		if endErr != nil {
+			h.jadwalFormValues(w, r, http.StatusBadRequest, j, "Tanggal akhir tidak valid", pekerja, shift, tanggal, tanggalAkhir, lewatiMinggu)
+			return
+		}
+		var jumlah int
+		jumlah, err = h.Svc.JadwalBuatRentang(r.Context(), j.IDPekerja, j.IDShift, parsedDate, parsedEnd, lewatiMinggu)
+		if err == nil {
+			pesan = "Berhasil menempatkan " + strconv.Itoa(jumlah) + " jadwal shift sekaligus."
+		}
 	} else {
 		_, err = h.Svc.JadwalBuat(r.Context(), j)
 	}
 	if err != nil {
 		if validasi(err) {
-			w.WriteHeader(http.StatusBadRequest)
-			h.jadwalFormValues(w, r, j, validasiPesan(err), pekerja, shift, tanggal)
+			h.jadwalFormValues(w, r, http.StatusBadRequest, j, validasiPesan(err), pekerja, shift, tanggal, tanggalAkhir, lewatiMinggu)
 			return
 		}
 		gagal(w, err)
 		return
 	}
-	http.Redirect(w, r, "/jadwal", http.StatusSeeOther)
+	http.Redirect(w, r, "/jadwal?pesan="+url.QueryEscape(pesan), http.StatusSeeOther)
 }
 func (h *AbsensiHandler) JadwalHapus(w http.ResponseWriter, r *http.Request) {
 	id, ok := idDariPath(w, r)
@@ -188,6 +213,10 @@ func (h *AbsensiHandler) JadwalHapus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.Svc.JadwalHapus(r.Context(), id); err != nil {
+		if validasi(err) {
+			h.renderJadwalDaftar(w, r, http.StatusBadRequest, validasiPesan(err))
+			return
+		}
 		gagal(w, err)
 		return
 	}
@@ -260,7 +289,59 @@ func (h *AbsensiHandler) absensiFormError(w http.ResponseWriter, r *http.Request
 	p := AbsensiFormPage{Judul: "Catat Absensi", Action: "/jadwal/" + strconv.Itoa(j.ID) + "/absensi", Jadwal: j, Status: a.Status, Keterangan: a.Keterangan, Error: msg, JamMasuk: jamMasuk, JamKeluar: jamKeluar}
 	h.View.Tampil(w, "absensi/absensi_form.html", p)
 }
+func (h *AbsensiHandler) AbsensiHadirNormal(w http.ResponseWriter, r *http.Request) {
+	id, ok := idDariPath(w, r)
+	if !ok {
+		return
+	}
+	next := "/absensi/pemeriksaan"
+	if r.PostFormValue("next") == "/jadwal" {
+		next = "/jadwal"
+	}
+	if err := h.Svc.AbsensiHadirNormal(r.Context(), id); err != nil {
+		if validasi(err) {
+			if next == "/jadwal" {
+				h.renderJadwalDaftar(w, r, http.StatusBadRequest, validasiPesan(err))
+				return
+			}
+			h.renderPemeriksaan(w, r, http.StatusBadRequest, validasiPesan(err))
+			return
+		}
+		gagal(w, err)
+		return
+	}
+	http.Redirect(w, r, next+"?pesan="+url.QueryEscape("Kehadiran normal sesuai shift berhasil dicatat."), http.StatusSeeOther)
+}
+
+func (h *AbsensiHandler) AbsensiHadirNormalMassal(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		h.renderPemeriksaan(w, r, http.StatusBadRequest, "Form tidak valid")
+		return
+	}
+	var ids []int
+	for _, raw := range r.PostForm["id_jadwal"] {
+		if v, err := strconv.Atoi(strings.TrimSpace(raw)); err == nil && v > 0 {
+			ids = append(ids, v)
+		}
+	}
+	jumlah, err := h.Svc.AbsensiHadirNormalMassal(r.Context(), ids)
+	if err != nil {
+		if validasi(err) {
+			h.renderPemeriksaan(w, r, http.StatusBadRequest, validasiPesan(err))
+			return
+		}
+		gagal(w, err)
+		return
+	}
+	pesan := "Berhasil mencatat hadir sesuai shift untuk " + strconv.Itoa(jumlah) + " jadwal."
+	http.Redirect(w, r, "/absensi/pemeriksaan?pesan="+url.QueryEscape(pesan), http.StatusSeeOther)
+}
+
 func (h *AbsensiHandler) Pemeriksaan(w http.ResponseWriter, r *http.Request) {
+	h.renderPemeriksaan(w, r, http.StatusOK, "")
+}
+
+func (h *AbsensiHandler) renderPemeriksaan(w http.ResponseWriter, r *http.Request, status int, pesanError string) {
 	user, _ := middleware.PenggunaDariContext(r.Context())
 	if !user.AdalahAdmin() && !user.AdalahPemilik() {
 		http.Error(w, "Akses ditolak", http.StatusForbidden)
@@ -286,18 +367,27 @@ func (h *AbsensiHandler) Pemeriksaan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
-	p := PemeriksaanPage{Admin: user.AdalahAdmin(), Mulai: q.Get("mulai"), Akhir: q.Get("akhir"), FilterPekerja: q.Get("pekerja"), FilterShift: q.Get("shift"), FilterStatus: q.Get("status"), Pekerja: ps, Shift: ss}
+	p := PemeriksaanPage{
+		Admin: user.AdalahAdmin(),
+		Mulai: q.Get("mulai"), Akhir: q.Get("akhir"),
+		FilterPekerja: q.Get("pekerja"), FilterShift: q.Get("shift"), FilterStatus: q.Get("status"),
+		Error: pesanError, Pesan: q.Get("pesan"),
+		Pekerja: ps, Shift: ss,
+	}
 	for _, j := range js {
 		if !dalamFilter(j, q) || !filterPekerja(j, q) || !filterShift(j, q) {
 			continue
 		}
-		status := statusAbsensi(j)
-		if p.FilterStatus != "" && status != p.FilterStatus {
+		st := statusAbsensi(j)
+		if p.FilterStatus != "" && st != p.FilterStatus {
 			continue
 		}
 		p.Jadwal = append(p.Jadwal, j)
+		if st == "belum_dicatat" {
+			p.BelumDicatatIDs = append(p.BelumDicatatIDs, j.ID)
+		}
 	}
-	h.View.Tampil(w, "absensi/pemeriksaan.html", p)
+	h.View.TampilStatus(w, status, "absensi/pemeriksaan.html", p)
 }
 func statusAbsensi(j model.JadwalShift) string {
 	if j.Absensi == nil {
@@ -354,6 +444,10 @@ func validasiPesan(err error) string {
 }
 
 func (h *AbsensiHandler) ShiftDaftar(w http.ResponseWriter, r *http.Request) {
+	h.renderShiftDaftar(w, r, http.StatusOK, "")
+}
+
+func (h *AbsensiHandler) renderShiftDaftar(w http.ResponseWriter, r *http.Request, status int, pesanError string) {
 	u, _ := middleware.PenggunaDariContext(r.Context())
 	if !u.AdalahAdmin() && !u.AdalahPemilik() {
 		http.Error(w, "Akses ditolak", http.StatusForbidden)
@@ -364,7 +458,7 @@ func (h *AbsensiHandler) ShiftDaftar(w http.ResponseWriter, r *http.Request) {
 		gagal(w, e)
 		return
 	}
-	h.View.Tampil(w, "absensi/shift_list.html", ShiftPage{Admin: u.AdalahAdmin(), Shift: ss})
+	h.View.TampilStatus(w, status, "absensi/shift_list.html", ShiftPage{Admin: u.AdalahAdmin(), Shift: ss, Error: pesanError})
 }
 func (h *AbsensiHandler) ShiftFormTambah(w http.ResponseWriter, r *http.Request) {
 	h.shiftForm(w, r, model.Shift{}, "")
@@ -427,6 +521,10 @@ func (h *AbsensiHandler) ShiftHapus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if e := h.Svc.ShiftHapus(r.Context(), id); e != nil {
+		if validasi(e) {
+			h.renderShiftDaftar(w, r, http.StatusBadRequest, validasiPesan(e))
+			return
+		}
 		gagal(w, e)
 		return
 	}

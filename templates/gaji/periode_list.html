@@ -1,0 +1,60 @@
+{{define "content"}}
+<section class="dashboard">
+    <div class="page-head">
+        <h1>Penggajian</h1>
+        <p class="subtitle">Daftar periode penggajian mingguan dan bulanan.</p>
+    </div>
+
+{{if .Admin}}
+<div class="quick-links">
+    <a class="btn" href="/periode/form">Buat Periode</a>
+</div>
+{{end}}
+
+    <div class="table-scroll">
+        <table class="module-table">
+            <thead>
+                <tr>
+                    <th>Periode</th>
+                    <th>Jenis</th>
+                    <th>Rencana Bayar</th>
+                    <th>Status</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Periode}}
+                <tr>
+                    <td>
+                        {{tgl_indo .TanggalAwal}}
+                        – {{tgl_indo .TanggalAkhir}}
+                    </td>
+                    <td>
+                        {{if eq .Jenis "mingguan"}}
+                            Mingguan
+                        {{else}}
+                            Bulanan
+                        {{end}}
+                    </td>
+                    <td>{{tgl_indo .TanggalBayarRencana}}</td>
+                    <td>
+                        {{if eq .Status "terbuka"}}
+                            <span class="badge badge-warning">Terbuka</span>
+                        {{else}}
+                            <span class="badge badge-success">Ditutup</span>
+                        {{end}}
+                    </td>
+                    <td>
+                        <a href="/periode/{{.ID}}">Lihat Rincian</a>
+                    </td>
+                </tr>
+                {{else}}
+                <tr class="empty-row">
+                    <td colspan="5">Belum ada periode gaji.</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</section>
+{{end}}

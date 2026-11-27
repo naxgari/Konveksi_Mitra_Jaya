@@ -1,0 +1,21 @@
+{{define "content"}}
+<div class="dashboard module-page">
+  <div class="report-heading"><div><h1>Rekap Biaya Gaji &amp; Lembur</h1><p class="subtitle">Ringkasan payroll per periode dan jenis pekerja.</p></div><button class="btn btn-light" type="button" onclick="window.print()">Cetak laporan</button></div>
+  <form method="get" action="/laporan/rekap" class="report-filters">
+    <label>Periode<select class="form-control" name="periode"><option value="">Semua periode</option>{{range .Periode}}<option value="{{.ID}}" {{if eq .ID $.IDPeriode}}selected{{end}}>{{.Label}}</option>{{end}}</select></label>
+    <label>Jenis pekerja<select class="form-control" name="jenis"><option value="">Semua jenis</option><option value="harian" {{if eq .Jenis "harian"}}selected{{end}}>Harian</option><option value="bulanan" {{if eq .Jenis "bulanan"}}selected{{end}}>Bulanan</option></select></label>
+    <button class="btn" type="submit">Terapkan filter</button><a class="btn btn-light" href="/laporan/rekap">Reset</a>
+  </form>
+  <div class="metrics report-metrics">
+    <div class="metric"><p class="metric-label">Total gaji pokok</p><p class="metric-value">{{rupiah_float .Ringkasan.TotalGajiPokok}}</p></div>
+    <div class="metric"><p class="metric-label">Total lembur</p><p class="metric-value">{{rupiah_float .Ringkasan.TotalLembur}}</p></div>
+    <div class="metric"><p class="metric-label">Gaji bruto</p><p class="metric-value">{{rupiah_float .Ringkasan.TotalGajiBruto}}</p></div>
+    <div class="metric"><p class="metric-label">Pembayaran bersih</p><p class="metric-value">{{rupiah_float .Ringkasan.TotalGajiBersih}}</p></div>
+  </div>
+  <p class="report-count">Jumlah gaji: {{.Ringkasan.JumlahGaji}} · Sudah dibayar: {{.Ringkasan.JumlahDibayar}}</p>
+  <div class="table-scroll"><table class="module-table"><thead><tr><th>Pekerja</th><th>Periode</th><th>Jenis</th><th>Pokok</th><th>Lembur</th><th>Terlambat</th><th>Kasbon</th><th>Koreksi</th><th>Bruto</th><th>Bersih</th><th>Status</th><th>Slip</th></tr></thead><tbody>
+    {{range .Baris}}<tr><td>{{.NamaPekerja}}</td><td>{{.Periode}}</td><td>{{.JenisPekerja}}</td><td>{{rupiah_float .GajiPokok}}</td><td>{{rupiah_float .TotalLembur}}</td><td>{{rupiah_float .PotonganTelat}}</td><td>{{rupiah_float .PotonganKasbon}}</td><td>{{rupiah_float .TotalKoreksi}}</td><td>{{rupiah_float .GajiBruto}}</td><td><strong>{{rupiah_float .GajiBersih}}</strong></td><td>{{.StatusBayar}}</td><td><a href="/gaji/{{.IDGaji}}/slip">Lihat</a></td></tr>{{else}}<tr class="empty-row"><td colspan="12">Tidak ada gaji untuk filter ini.</td></tr>{{end}}
+  </tbody>{{if .Baris}}<tfoot><tr style="background:#f8fafc;font-weight:600;"><td colspan="3">Total</td><td>{{rupiah_float .Ringkasan.TotalGajiPokok}}</td><td>{{rupiah_float .Ringkasan.TotalLembur}}</td><td>{{rupiah_float .Ringkasan.TotalPotonganTelat}}</td><td>{{rupiah_float .Ringkasan.TotalPotonganKasbon}}</td><td>{{rupiah_float .Ringkasan.TotalKoreksi}}</td><td>{{rupiah_float .Ringkasan.TotalGajiBruto}}</td><td>{{rupiah_float .Ringkasan.TotalGajiBersih}}</td><td colspan="2"></td></tr></tfoot>{{end}}</table></div>
+</div>
+<style>.report-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.report-filters{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin:20px 0}.report-filters label{display:grid;gap:5px;min-width:220px}.report-metrics{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}.report-count{color:#64748b}.module-table td,.module-table th{vertical-align:top}@media print{header,aside,footer,.report-filters,.report-heading button{display:none!important}main{margin:0!important;padding:0!important}.module-table{font-size:9px}.table-scroll{overflow:visible}}</style>
+{{end}}

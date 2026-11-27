@@ -18,8 +18,6 @@
                 <td>
                     {{if .AdalahAdmin}}
                         <span class="badge badge-admin">{{.LabelPeran}}</span>
-                    {{else if .AdalahSupervisor}}
-                        <span class="badge badge-supervisor">{{.LabelPeran}}</span>
                     {{else if .AdalahPemilik}}
                         <span class="badge badge-pemilik">{{.LabelPeran}}</span>
                     {{end}}
@@ -29,9 +27,9 @@
                 <th>Akses Menu Penggajian</th>
                 <td>
                     {{if .BisaAksesGaji}}
-                        <span class="badge badge-success">Diizinkan (Pekerja, Gaji, Kasbon, Koreksi &amp; Laporan)</span>
+                        <span class="badge badge-success">Diizinkan (Pekerja, Absensi, Gaji, Kasbon, Koreksi &amp; Laporan)</span>
                     {{else}}
-                        <span class="badge badge-warning">Dibatasi (Khusus Jadwal Shift &amp; Pencatatan Absensi)</span>
+                        <span class="badge badge-warning">Dibatasi</span>
                     {{end}}
                 </td>
             </tr>

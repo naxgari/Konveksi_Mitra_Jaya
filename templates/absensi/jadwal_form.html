@@ -1,7 +1,13 @@
 {{define "content"}}
 <section class="dashboard"><div class="page-head"><h1>{{.Judul}}</h1><p class="subtitle">{{.Subjudul}}</p></div>{{if .Error}}<p class="notice warning" role="alert">{{.Error}}</p>{{end}}<form class="panel dialog-form" method="post" action="{{.Action}}">
 <label>Pekerja<select class="form-control" name="pekerja" required><option value="">Pilih pekerja</option>{{range .Pekerja}}<option value="{{.ID}}" {{if eq (printf "%d" .ID) $.FormPekerja}}selected{{end}}>{{.Nama}} ({{.Jenis}})</option>{{end}}</select></label>
-<label>Tanggal<input class="form-control" type="date" name="tanggal" value="{{.Tanggal}}" required></label>
+<label>{{if .ModeEdit}}Tanggal{{else}}Tanggal Mulai{{end}}<input class="form-control" id="jadwal-tgl-mulai" type="date" name="tanggal" value="{{.Tanggal}}" required></label>
+{{if not .ModeEdit}}
+<label>Sampai Tanggal (opsional — isi untuk membuat jadwal beberapa hari sekaligus, mis. Senin–Sabtu)<input class="form-control" id="jadwal-tgl-akhir" type="date" name="tanggal_akhir" value="{{.TanggalAkhir}}"></label>
+<label style="flex-direction:row;align-items:center;gap:8px;font-weight:500;"><input type="checkbox" name="lewati_minggu" value="1" {{if .LewatiMinggu}}checked{{end}}> Lewati hari Minggu saat membuat jadwal rentang tanggal</label>
+<p class="dialog-hint">Kosongkan "Sampai Tanggal" jika hanya ingin menambah 1 hari. Jika diisi rentang (maks. 31 hari), seluruh hari kerja akan dibuat sekaligus dalam satu transaksi.</p>
+{{end}}
 <label>Shift<select class="form-control" name="shift" required><option value="">Pilih shift</option>{{range .Shift}}<option value="{{.ID}}" {{if eq (printf "%d" .ID) $.FormShift}}selected{{end}}>{{.Nama}} · {{.JamMulai}}–{{.JamSelesai}}</option>{{end}}</select></label>
 <div class="dialog-actions"><a class="btn btn-light" href="/jadwal">Batal</a><button class="btn" type="submit">Simpan Jadwal</button></div></form></section>
+<script>const tm=document.getElementById("jadwal-tgl-mulai"),ta=document.getElementById("jadwal-tgl-akhir");if(tm&&ta){const sync=()=>{if(tm.value){ta.min=tm.value;if(ta.value&&ta.value<tm.value)ta.value=tm.value;}};tm.addEventListener("change",sync);sync();}</script>
 {{end}}

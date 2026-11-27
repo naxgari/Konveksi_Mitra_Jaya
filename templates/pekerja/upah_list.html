@@ -1,0 +1,106 @@
+
+{{define "content"}}
+
+<div class="page-head clearfix">
+    <h3 class="float-left">Riwayat Upah Pekerja</h3>
+
+    {{if and currentUser currentUser.AdalahAdmin}}
+    <a href="/pekerja/{{.Pekerja.ID}}/upah/form"
+       class="btn float-right">
+        + Tambah Riwayat Upah
+    </a>
+    {{end}}
+</div>
+
+<div class="form-group">
+    <h4>Informasi Pekerja</h4>
+
+    <p>
+        <strong>Nama:</strong>
+        {{.Pekerja.Nama}}
+    </p>
+
+    <p>
+        <strong>Jenis Pekerja:</strong>
+        {{.Pekerja.JenisPekerja}}
+    </p>
+
+    <p>
+        <strong>Jabatan:</strong>
+        {{.Pekerja.Jabatan}}
+    </p>
+
+    <p>
+        <strong>Status:</strong>
+        {{if .Pekerja.TanggalKeluar}}
+            Nonaktif
+        {{else}}
+            Aktif
+        {{end}}
+    </p>
+</div>
+
+<h4>Daftar Riwayat Upah</h4>
+
+<div class="table-scroll">
+<table class="module-table">
+    <thead>
+        <tr>
+            <th width="50px">ID</th>
+            <th>Tanggal Mulai Berlaku</th>
+            <th>Nominal Upah</th>
+            <th>Keterangan</th>
+            <th>Data Dibuat</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {{range .Riwayat}}
+        <tr>
+            <td>{{.ID}}</td>
+
+            <td>
+                {{tgl_indo .BerlakuMulai}}
+            </td>
+
+            <td>
+                {{rupiah_upah .Nominal}}
+            </td>
+
+            <td>
+                {{if .Keterangan}}
+                    {{.Keterangan}}
+                {{else}}
+                    -
+                {{end}}
+            </td>
+
+            <td>
+                {{tgl_indo .CreatedAt}} {{.CreatedAt.Format "15:04"}}
+            </td>
+        </tr>
+
+        {{else}}
+        <tr class="empty-row">
+            <td colspan="5">
+                Belum ada riwayat upah untuk pekerja ini.
+            </td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+</div>
+
+<div class="actions">
+    <a href="/pekerja/{{.Pekerja.ID}}"
+       class="btn btn-light">
+        Kembali ke Detail Pekerja
+    </a>
+
+    <a href="/pekerja"
+       class="btn btn-light">
+        Daftar Pekerja
+    </a>
+</div>
+
+{{end}}

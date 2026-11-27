@@ -1,0 +1,118 @@
+
+{{define "content"}}
+<div class="page-head clearfix">
+    <h3 class="float-left">Daftar Pekerja</h3>
+    {{if and currentUser currentUser.AdalahAdmin}}
+    <a href="/pekerja/form" class="btn float-right">
+        + Tambah Pekerja
+    </a>
+    {{end}}
+</div>
+
+<div class="table-scroll">
+<table class="module-table">
+    <thead>
+        <tr>
+            <th>Nama Pekerja</th>
+            <th>ID</th>
+            <th>Jenis Pekerja</th>
+            <th>Jabatan</th>
+            <th>Kontak</th>
+            <th>Tanggal Masuk</th>
+            <th>Tanggal Keluar</th>
+            <th>Status</th>
+            <th>Aksi</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {{range .}}
+        <tr>
+            <td>
+                <a href="/pekerja/{{.ID}}">
+                    {{.Nama}}
+                </a>
+            </td>
+
+            <td>#{{.ID}}</td>
+
+            <td>{{.JenisPekerja}}</td>
+
+            <td>{{.Jabatan}}</td>
+
+            <td>
+                {{if .Kontak}}
+                    {{.Kontak}}
+                {{else}}
+                    -
+                {{end}}
+            </td>
+
+            <td>
+                {{tgl_indo .TanggalMasuk}}
+            </td>
+
+            <td>
+                {{if .TanggalKeluar}}
+                    {{tgl_indo .TanggalKeluar}}
+                {{else}}
+                    -
+                {{end}}
+            </td>
+
+            <td>
+                {{if .TanggalKeluar}}
+                    <span class="badge badge-danger">Nonaktif</span>
+                {{else}}
+                    <span class="badge badge-success">Aktif</span>
+                {{end}}
+            </td>
+
+            <td>
+                <div class="actions">
+                    <a href="/pekerja/{{.ID}}"
+                       class="btn btn-light btn-sm">
+                        Detail
+                    </a>
+
+                    {{if and currentUser currentUser.AdalahAdmin}}
+                    <a href="/pekerja/{{.ID}}/edit"
+                       class="btn btn-light btn-sm">
+                        Edit
+                    </a>
+
+                    {{if not .TanggalKeluar}}
+                    <form method="POST"
+                          action="/pekerja/{{.ID}}/nonaktif"
+                          class="actions"
+                          onsubmit="return confirm('Yakin ingin menonaktifkan pekerja ini?')">
+
+                        <input type="date"
+                               name="tanggal_keluar"
+                               class="form-control"
+                               style="height:32px;width:145px;padding:0 8px;"
+                               min="{{.TanggalMasuk.Format "2006-01-02"}}"
+                               required>
+
+                        <button type="submit"
+                                class="btn btn-danger btn-sm">
+                            Nonaktifkan
+                        </button>
+                    </form>
+                    {{end}}
+                    {{end}}
+                </div>
+            </td>
+        </tr>
+
+        {{else}}
+        <tr class="empty-row">
+            <td colspan="9">
+                Belum ada data pekerja.
+            </td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+</div>
+{{end}}

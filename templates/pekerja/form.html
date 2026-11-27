@@ -1,0 +1,134 @@
+
+{{define "content"}}
+<div class="page-head clearfix">
+    <h3 class="float-left">{{.Judul}}</h3>
+    <a href="/pekerja" class="btn btn-light float-right">
+        Kembali
+    </a>
+</div>
+
+{{if .Error}}
+<div class="alert alert-danger">{{.Error}}</div>
+{{end}}
+
+<form method="POST" action="{{.Action}}">
+
+    <div class="form-group">
+        <label for="nama">Nama Pekerja</label>
+        <input
+            type="text"
+            id="nama"
+            name="nama"
+            class="form-control"
+            value="{{.Pekerja.Nama}}"
+            maxlength="100"
+            placeholder="Masukkan nama pekerja"
+            required>
+    </div>
+
+    <div class="form-group">
+        <label for="jenis_pekerja">Jenis Pekerja</label>
+        <select
+            id="jenis_pekerja"
+            name="jenis_pekerja"
+            class="form-control"
+            required>
+
+            <option value="">Pilih Jenis Pekerja</option>
+
+            <option value="harian"
+                {{if eq .Pekerja.JenisPekerja "harian"}}
+                selected
+                {{end}}>
+                Harian
+            </option>
+
+            <option value="bulanan"
+                {{if eq .Pekerja.JenisPekerja "bulanan"}}
+                selected
+                {{end}}>
+                Bulanan
+            </option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="jabatan">Jabatan</label>
+        <input
+            type="text"
+            id="jabatan"
+            name="jabatan"
+            class="form-control"
+            value="{{.Pekerja.Jabatan}}"
+            maxlength="100"
+            placeholder="Contoh: Penjahit"
+            required>
+    </div>
+
+    <div class="form-group">
+        <label for="kontak">Kontak</label>
+        <input
+            type="tel"
+            id="kontak"
+            name="kontak"
+            class="form-control"
+            value="{{if .Pekerja.Kontak}}{{.Pekerja.Kontak}}{{end}}"
+            maxlength="50"
+            placeholder="Contoh: 081234567890">
+    </div>
+
+    <div class="form-group">
+        <label for="tanggal_masuk">Tanggal Masuk</label>
+        <input
+            type="date"
+            id="tanggal_masuk"
+            name="tanggal_masuk"
+            class="form-control"
+            value="{{if not .Pekerja.TanggalMasuk.IsZero}}{{.Pekerja.TanggalMasuk.Format "2006-01-02"}}{{end}}"
+            required>
+    </div>
+
+    {{if not .ModeEdit}}
+    <div class="form-group">
+        <label for="upah_awal">Upah Awal (Rp)</label>
+        <input
+            type="number"
+            id="upah_awal"
+            name="upah_awal"
+            class="form-control"
+            min="0.01"
+            max="9999999999999.99"
+            step="0.01"
+            value="{{.UpahAwal}}"
+            placeholder="Contoh: 120000 (harian) atau 3100000 (bulanan)"
+            required>
+        <div class="form-hint">Otomatis disimpan sebagai baris pertama pada Riwayat Upah (berlaku mulai Tanggal Masuk). Kenaikan/perubahan upah selanjutnya tetap dicatat melalui menu Riwayat Upah (AB 02).</div>
+    </div>
+
+    <div class="form-group">
+        <label for="keterangan_upah">Keterangan Upah Awal (opsional)</label>
+        <input
+            type="text"
+            id="keterangan_upah"
+            name="keterangan_upah"
+            class="form-control"
+            maxlength="255"
+            value="{{.KeteranganUpah}}"
+            placeholder="Contoh: Tarif upah awal">
+    </div>
+    {{else}}
+    <p class="notice" style="margin-bottom:16px;">Untuk mengubah nominal upah (kenaikan UMK/jabatan), gunakan menu <strong>Riwayat Upah</strong> pada halaman detail pekerja agar riwayat penggajian lama tetap terjaga (AB 02).</p>
+    {{end}}
+
+    <div class="form-group">
+        <button type="submit" class="btn">
+            Simpan Data
+        </button>
+
+        <a href="/pekerja" class="btn btn-light">
+            Batal
+        </a>
+    </div>
+
+</form>
+{{end}}

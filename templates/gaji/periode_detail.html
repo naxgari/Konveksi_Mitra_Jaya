@@ -1,0 +1,160 @@
+{{define "content"}}
+<section class="dashboard">
+    <div class="page-head">
+        <h1>Rincian Periode Gaji</h1>
+        <p class="subtitle">
+            {{tgl_indo .Periode.TanggalAwal}}
+            – {{tgl_indo .Periode.TanggalAkhir}}
+        </p>
+    </div>
+
+    {{if .Error}}
+    <p class="notice warning" role="alert">{{.Error}}</p>
+    {{end}}
+    {{if .Pesan}}
+    <p class="notice">{{.Pesan}}</p>
+    {{end}}
+
+    <div class="quick-links">
+        <a class="btn btn-light" href="/periode">
+            Kembali ke Daftar Periode
+        </a>
+
+        {{if and .Pemilik (eq .Periode.Status "terbuka")}}
+        <form
+            method="post"
+            action="/periode/{{.Periode.ID}}/tutup"
+            onsubmit="return confirm('Tutup periode ini? Absensi dan hasil gaji terkait akan dikunci.')"
+        >
+            <button class="btn" type="submit">Tutup Periode</button>
+        </form>
+        {{end}}
+    </div>
+
+    <div class="panel">
+        <div class="panel-row">
+            <span>Jenis periode</span>
+            <strong>
+                {{if eq .Periode.Jenis "mingguan"}}
+                    Mingguan
+                {{else}}
+                    Bulanan
+                {{end}}
+            </strong>
+        </div>
+        <div class="panel-row">
+            <span>Rencana pembayaran</span>
+            <strong>{{tgl_indo .Periode.TanggalBayarRencana}}</strong>
+        </div>
+        <div class="panel-row">
+            <span>Status periode</span>
+            {{if eq .Periode.Status "terbuka"}}
+                <span class="badge badge-warning">Terbuka</span>
+            {{else}}
+                <span class="badge badge-success">Ditutup</span>
+            {{end}}
+        </div>
+        {{if eq .Periode.Status "tertutup"}}
+        <div class="panel-row">
+            <span>Ditutup oleh</span>
+            <strong>{{if .Periode.DitutupOlehNama}}{{.Periode.DitutupOlehNama}}{{else}}Pemilik{{end}}{{with .Periode.DitutupPada}} · {{tgl_indo .}} {{.Format "15:04"}}{{end}}</strong>
+        </div>
+        {{end}}
+    </div>
+
+    {{if and .Admin (eq .Periode.Status "terbuka")}}
+    <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+            <h2>Hitung Draf Gaji</h2>
+            {{if .Pekerja}}
+            <form method="post" action="/periode/{{.Periode.ID}}/hitung-semua" onsubmit="return confirm('Hitung draf gaji untuk semua {{len .Pekerja}} pekerja pada periode ini sekaligus?')">
+                <button class="btn" type="submit">Hitung Semua Pekerja ({{len .Pekerja}})</button>
+            </form>
+            {{end}}
+        </div>
+
+        {{if .Pekerja}}
+        <form
+            class="dialog-form"
+            method="post"
+            action="/periode/{{.Periode.ID}}/hitung"
+        >
+            <label>
+                Atau hitung per pekerja
+                <select class="form-control" name="id_pekerja" required>
+                    <option value="">Pilih pekerja</option>
+                    {{range .Pekerja}}
+                    <option value="{{.ID}}">
+                        {{.Nama}} (#{{.ID}})
+                    </option>
+                    {{end}}
+                </select>
+            </label>
+
+            <p class="dialog-hint">
+                Draf yang belum dibayar dapat dihitung ulang dan otomatis menghitung rencana potongan kasbon (maks. 30% bruto) serta koreksi disetujui.
+            </p>
+
+            <div class="dialog-actions">
+                <button class="btn btn-light" type="submit">Hitung 1 Pekerja</button>
+            </div>
+        </form>
+        {{else}}
+        <p class="panel-empty">
+            Tidak ada pekerja yang dapat dihitung untuk periode ini.
+        </p>
+        {{end}}
+    </div>
+    {{end}}
+
+    <div class="table-scroll">
+        <table class="module-table">
+            <thead>
+                <tr>
+                    <th>Pekerja</th>
+                    <th>Gaji Pokok</th>
+                    <th>Lembur</th>
+                    <th>Potongan Telat</th>
+                    <th>Kasbon</th>
+                    <th>Koreksi</th>
+                    <th>Bruto</th>
+                    <th>Bersih</th>
+                    <th>Status</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Gaji}}
+                <tr>
+                    <td>{{if .NamaPekerja}}{{.NamaPekerja}} (#{{.IDPekerja}}){{else}}#{{.IDPekerja}}{{end}}</td>
+                    <td>{{rupiah_upah .GajiPokok}}</td>
+                    <td>{{rupiah_upah .TotalLembur}}</td>
+                    <td>{{rupiah_upah .PotonganTelat}}</td>
+                    <td>{{rupiah_upah .TotalPotonganKasbon}}</td>
+                    <td>{{rupiah_upah .TotalKoreksi}}</td>
+                    <td>{{rupiah_upah .GajiBruto}}</td>
+                    <td><strong>{{rupiah_upah .GajiBersih}}</strong></td>
+                    <td>
+                        {{if eq .StatusBayar "dibayar"}}
+                            <span class="badge badge-success">Dibayar</span>
+                        {{else}}
+                            <span class="badge badge-warning">Belum Dibayar</span>
+                        {{end}}
+                    </td>
+                    <td>
+                        <div class="actions">
+                            <a href="/gaji/{{.ID}}">Lihat Detail</a>
+                            <a href="/gaji/{{.ID}}/slip">Slip</a>
+                        </div>
+                    </td>
+                </tr>
+                {{else}}
+                <tr class="empty-row">
+                    <td colspan="10">Belum ada draf gaji pada periode ini.</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</section>
+{{end}}

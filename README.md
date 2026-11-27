@@ -1,83 +1,86 @@
-# **Pembagian Tugas 5 Anggota (Full-Stack per Modul)** 
+# Sistem Penggajian Pekerja Harian & Shift — Konveksi Mitra Jaya (Kelompok 3)
 
-Agar adil dan setiap orang memahami alur Go dari database sampai ke tampilan web, bagi tugas secara vertikal per modul fitur (setiap orang menggarap `model` -> `repository` -> `service` -> `handler` -> `template HTML` untuk modulnya masing-masing): 
+Aplikasi web full-stack berbasis **Go (`net/http`)**, **MySQL**, dan **HTML/CSS/JavaScript vanilla** untuk mengotomatiskan pengelolaan pekerja, riwayat upah, jadwal shift, absensi, kasbon, perhitungan gaji (harian & bulanan prorata, lembur progresif, potongan keterlambatan), penutupan periode, koreksi antarperiode, slip gaji, serta rekap laporan biaya gaji pada **Konveksi Mitra Jaya**.
 
-## 1. Muhammad Naufal A. (Ketua) — Modul Auth, Middleware, Core Setup & Integrasi 
+---
 
-Karena materi kuliah hari ini fokus penuh pada Authentication dan kamu adalah ketua yang harus mengawal integrasi kode, kamu memegang pondasi keamanan dan kerangka utama aplikasi: 
+## Pembagian Tugas 5 Anggota (Full-Stack Vertikal per Modul Kode)
 
-   - Database & Konfigurasi: Menyusun file `db/schema.sql` lengkap sesuai ERD, mengatur koneksi di `config.go`, `.env` (`COOKIE_SECURE`), dan merakit routing utama (pemisahan Public vs Private `ServeMux`) di `cmd/web/main.go`. 
+Setiap anggota bertanggung jawab secara penuh dan adil atas modul kode programnya masing-masing secara vertikal (**`model` → `repository` → `service` → `handler` → `template HTML` → `test`**) sehingga tidak ada peran "merapikan secara global" atau *one-man-show*.
 
-   - Fitur Autentikasi (10 Langkah Dosen): Menggarap tabel `PENGGUNA` & `SESI` (`sessions`), fitur Login, Register (validasi password kuat + hashing `bcrypt` + tangkap error MySQL `1062`), dan Logout. 
+### Tabel Ringkasan Pembagian Job Desc
 
-   - Middleware & Role Access: Membuat middleware `RequireLogin` (baca token dari Cookie & simpan data user ke `context.WithValue`) serta pembatasan akses untuk dua peran sesuai dokumen: Admin Penggajian dan Pemilik.
+| No | Nama Anggota | NIM | Modul & Ruang Lingkup Kode | Tabel Database | File Kode Utama |
+|---|---|---|---|---|---|
+| 1 | **Muhammad Naufal A.** | `2404130057` | Autentikasi (`bcrypt` + Sesi Cookie), Middleware Hak Akses 2 Peran, Konfigurasi DB, Routing & Dashboard | `pengguna`, `sesi` | `cmd/web/main.go`, `internal/config/`, `internal/middleware/`, `internal/*/pengguna.go`, `internal/service/auth.go`, `internal/handler/{auth,halaman,render,helper}.go`, `templates/{layout,sidebar,home,profil,auth/*}.html` |
+| 2 | **Cahya Din Ramadhan** | `2404130018` | Master Pekerja (`harian`/`bulanan`), Soft-Deactive, Penetapan Upah Awal & Riwayat Perubahan Upah (`AB 01–02`) | `pekerja`, `riwayat_upah` | `internal/{model,repository,service,handler}/{pekerja,riwayat_upah}.go`, `templates/pekerja/*.html` |
+| 3 | **Muhammad Falih A.** | `2404130054` | Master Shift, Penjadwalan Shift (Tunggal & Rentang), Pencatatan & Pemeriksaan Absensi (`AB 03, AB 06–07`) | `shift`, `jadwal_shift`, `absensi` | `internal/{model,repository,service,handler}/absensi.go`, `internal/*/absensi*_test.go`, `templates/absensi/*.html` |
+| 4 | **Daffa Azmi Ikhtiar F.** | `2404130059` | Periode Gaji, Engine Hitung Gaji/Lembur/Prorata (`big.Rat`), Pembayaran Atomik & Penutupan Periode (`AB 01, AB 04–07, AB 09–10`) | `periode_gaji`, `gaji`, `detail_gaji` | `internal/{model,repository,service}/{periode_gaji,penggajian}.go`, `internal/service/{perhitungan_gaji,draf_gaji}.go`, `internal/handler/penggajian.go`, `templates/gaji/*.html` |
+| 5 | **Adel Bin Faris Abdat** | `2404130169` | Kasbon Pekerja (FIFO Maks. 30%), Koreksi Antarperiode, Cetak Slip Gaji & Rekap Laporan (`AB 08, AB 11`) | `kasbon`, `potongan_kasbon`, `koreksi_gaji` | `internal/{model,repository,service,handler}/kasbon.go`, `internal/service/kasbon_test.go`, `templates/kasbon/*.html` |
 
-   - Template Utama: Merapikan `layout.html`, `sidebar.html`, halaman `/login`, dan `/register`. 
+---
 
-## 2. Cahya Din Ramadhan — Modul Master Pekerja & Riwayat Upah 
+### Rincian Tanggung Jawab Kode per Anggota
 
-Bertanggung jawab atas data induk pekerja dan pelacakan perubahan gaji mereka (Aturan Bisnis AB 02 ): 
+#### 1. Muhammad Naufal A. (`2404130057`) — Modul Autentikasi, Middleware, Konfigurasi & Dashboard
+- **Konfigurasi & Koneksi Database:** Menyusun `db/schema.sql`, konfigurasi `.env` & `internal/config/config.go`, koneksi MySQL (`loc=Local`, connection pool) serta perakitan routing Public vs Private `ServeMux` + `CrossOriginProtection` di `cmd/web/main.go`.
+- **Autentikasi & Sesi (`pengguna`, `sesi`):** Implementasi Login, Register (validasi panjang input, password kuat + hashing `bcrypt`, penanganan error duplikat MySQL `1062`), Logout, auto-seeder akun default (`admin` & `pemilik`), dan pengelolaan sesi cookie (`HttpOnly`, `SameSite`).
+- **Middleware & Hak Akses 2 Peran:** Implementasi `RequireLogin` (injeksi pengguna ke `context` dan `UserResponseWriter`), `RequireRole` untuk pemisahan akses **Admin Penggajian** dan **Pemilik**, serta middleware logging request.
+- **Renderer, Layout & Dashboard:** Implementasi `Renderer` (`Tampil` / `TampilStatus`, helper `rupiah_upah`, `tgl_indo`), kerangka tampilan bersama (`layout.html`, `sidebar.html`, `profil.html`), serta query & tampilan KPI real-time Dashboard (`home.html`).
 
-- Tabel yang Diurus: `PEKERJA` dan `RIWAYAT_UPAH`. 
+#### 2. Cahya Din Ramadhan (`2404130018`) — Modul Master Pekerja & Riwayat Upah (`AB 01–02`)
+- **Master Pekerja (`pekerja`):** CRUD data pekerja (`nama`, `jenis_pekerja`: `harian`/`bulanan`, `jabatan`, `kontak`, `tanggal_masuk`, `tanggal_keluar`) termasuk penetapan **Upah Awal** atomik dalam 1 transaksi saat pendaftaran pekerja baru, serta mekanisme *soft-deactive* (mengisi `tanggal_keluar` tanpa menghapus baris pekerja agar riwayat gaji tetap utuh).
+- **Riwayat Perubahan Upah (`riwayat_upah`):** Pencatatan perubahan tarif upah beserta `berlaku_mulai` (`UNIQUE(id_pekerja, berlaku_mulai)`), validasi rentang masa aktif pekerja, validasi nominal `DECIMAL(15,2)` positif, serta fungsi `TarifBerlaku` untuk mengambil tarif aktif pada tanggal tertentu.
+- **Tampilan Modul (`templates/pekerja/`):** Halaman daftar pekerja responsif, form tambah/edit pekerja, detail pekerja, serta daftar & form tambah riwayat upah (dengan pembatasan tombol aksi khusus Admin).
 
-- Fitur Backend (`model`, `repo`, `service`, `handler`): - CRUD data pekerja (nama, jenis pekerja: `harian`/`bulanan`, jabatan, kontak, tanggal masuk, tanggal keluar, status aktif). Pekerja yang berhenti tidak boleh dihapus (soft deactive), hanya di-set status/tanggal keluarnya. - Pencatatan dan penelusuran Riwayat Upah beserta `berlaku_mulai`. - Membuat fungsi helper di repository/service untuk mengambil tarif upah yang berlaku pada tanggal tertentu (fungsi ini nanti akan dipakai oleh pembuat Modul Perhitungan Gaji). 
+#### 3. Muhammad Falih A. (`2404130054`) — Modul Master Shift, Jadwal Shift & Absensi (`AB 03, AB 06–07`)
+- **Master Shift & Penjadwalan (`shift`, `jadwal_shift`):** Pengelolaan master shift (Pagi `07:00–15:00`, Siang `15:00–23:00`), penempatan jadwal tunggal maupun rentang tanggal (`JadwalBuatRentang`, opsi lewati Minggu) dengan validasi maksimal 1 shift per pekerja per tanggal dalam masa aktif.
+- **Pencatatan & Pemeriksaan Absensi (`absensi`):** Input absensi manual maupun konfirmasi cepat kehadiran normal (`Hadir Normal` satuan & massal), validasi pasangan jam masuk/keluar (jam keluar ≥ jam masuk, tidak lintas tanggal), penandaan status `perlu_diperiksa`, perhitungan otomatis `menit_terlambat` & `menit_lembur`, serta penguncian perubahan apabila periode gaji terkait sudah ditutup atau gaji sudah dibayar.
+- **Tampilan & Pengujian (`templates/absensi/`, `absensi*_test.go`):** Halaman kelola shift, jadwal, form absensi, dan pemeriksaan absensi beserta unit test & integration test MySQL.
 
-- Template HTML: Halaman daftar pekerja, form tambah/edit pekerja, dan halaman detail pekerja yang menampilkan tabel riwayat perubahan upahnya. 
+#### 4. Daffa Azmi Ikhtiar F. (`2404130059`) — Modul Periode & Engine Perhitungan Gaji (`AB 01, AB 04–07, AB 09–10`)
+- **Manajemen Periode Gaji (`periode_gaji`):** Pembuatan periode mingguan (Senin–Sabtu, bayar Sabtu) dan bulanan (bulan kalender) dengan validasi anti tumpang tindih pada transaksi `SERIALIZABLE`.
+- **Engine Hitung Gaji (`gaji`, `detail_gaji`):** Perhitungan presisi berbasis `big.Rat` (tanpa `float64`) meliputi tarif per jam (`harian ÷ 8`, `bulanan ÷ 173`), gaji pokok harian & prorata bulanan per hari aktif (mendukung perubahan tarif di tengah bulan), upah lembur progresif (`1,5×` jam pertama, `2×` jam berikutnya), potongan keterlambatan (`>15` menit potong 1 jam), integrasi alokasi kasbon & koreksi, serta pembulatan gaji akhir (`0,5` naik).
+- **Pembayaran Atomik & Penutupan Periode:** Hitung draf satuan & massal (`HitungSemuaDraf`), pembayaran gaji atomik anti-bayar ganda (mengunci rincian, memfinalisasi potongan kasbon & menerapkan koreksi), serta penutupan periode khusus Pemilik setelah seluruh pekerja pada periode tersebut dibayar.
+- **Tampilan & Pengujian (`templates/gaji/`, `penggajian_test.go`, `hitung_draf_test.go`, `penutupan_periode_test.go`):** Halaman daftar/form/detail periode dan detail rincian gaji per tanggal beserta rangkaian unit test & integration test MySQL.
 
-## 3. Muhammad Falih A — Modul Jadwal Shift & Pencatatan Absensi 
+#### 5. Adel Bin Faris Abdat (`2404130169`) — Modul Kasbon, Koreksi Antarperiode, Slip & Laporan (`AB 08, AB 11`)
+- **Manajemen Kasbon (`kasbon`, `potongan_kasbon`):** Pencatatan pengajuan kasbon dalam masa aktif pekerja, pelacakan saldo sisa (hanya berkurang setelah gaji berstatus `dibayar`; draf tidak mengurangi saldo), riwayat pemotongan per kasbon, serta aturan pemotongan FIFO maksimal 30% gaji bruto (dibulatkan ke bawah ke rupiah) dengan penahanan pembayaran bila nilai sebelum kasbon negatif.
+- **Koreksi Gaji Antarperiode (`koreksi_gaji`):** Pengajuan koreksi oleh Admin atas gaji yang sudah dibayar (selisih positif/negatif + alasan), persetujuan oleh Pemilik, dan penerapan satu kali pada gaji pekerja yang sama di periode berikutnya (termasuk pekerja yang sudah berhenti tanpa pokok baru).
+- **Slip Gaji & Rekap Laporan (`templates/kasbon/`):** Halaman Slip Gaji individual siap cetak (`@media print`) dan Laporan Rekap Biaya Gaji & Lembur per periode dengan filter periode & jenis pekerja serta baris total seluruh komponen.
 
-Bertanggung jawab atas operasional harian yang dikelola Admin dan dapat dibaca oleh Pemilik (Aturan Bisnis AB 03, AB 06, AB 07).
+---
 
-   - Tabel yang Diurus: `SHIFT`, `JADWAL_SHIFT`, dan `ABSENSI`. 
+## Prosedur & Aturan Presentasi Project Kelompok
 
-   - Fitur Backend (`model`, `repo`, `service`, `handler`): - Pengelolaan master Shift (Pagi `07:00-15:00` dan Siang `15:00-23:00`) dan penugasan Jadwal Shift per pekerja per tanggal (validasi maksimal 1 shift per pekerja per tanggal). - Input jam masuk & jam keluar pekerja (validasi: jam keluar tidak boleh mendahului jam masuk, serta tidak bisa diedit jika periode gaji terkait sudah berstatus Ditutup ). - Logika perhitungan otomatis menit terlambat ( _max_ ( 0 _, jammasukaktual_ − _awalshift_ )) dan jam lembur saat absensi disimpan, serta penandaan (flagging) jadwal yang belum lengkap jam absensinya untuk diperiksa. 
+- **Tanpa File Presentasi:** Tidak perlu membuat slide/file presentasi.
+- **Batas Waktu Ketat:** Maksimal **15 menit per kelompok** termasuk persiapan. Kelompok wajib langsung maju dan memulai saat gilirannya tiba serta selesai tepat waktu.
+- **Susunan Presentasi:**
+  1. **Demo Program Langsung (±3 menit):** Dilakukan oleh **1 perwakilan kelompok** (bukan bergantian) untuk mendemokan alur aplikasi berjalan secara langsung **tanpa menjelaskan logic isi kode program**:
+     - Login **Admin** → Dashboard → Tambah pekerja + upah awal → Jadwal shift rentang + absensi cepat (1 telat/lembur) → Catat kasbon → Buat periode & hitung gaji + bayar gaji.
+     - Login **Pemilik** → Cek hak akses baca saja → Tutup periode → Setujui koreksi gaji.
+     - Tampilkan **Slip Gaji** (siap cetak) & **Laporan Rekap** (filter periode/jenis).
+  2. **Sesi Tanya Jawab (±10–12 menit):** Pertanyaan langsung dari dosen kepada **masing-masing anggota** sesuai job desc kode programnya pada tabel di atas.
 
-   - Template HTML: Halaman kelola jadwal shift, form input absensi harian, dan daftar rekap kehadiran/pemeriksaan absensi. 
+---
 
-## 4. Daffa Azmi Ikhtiar F. — Modul Periode & Engine Perhitungan Gaji 
+## Cara Menjalankan Aplikasi & Pengujian
 
-Ini adalah modul inti (core engine) yang mengolah data dari modul Pekerja dan Absensi menjadi draf gaji (Aturan Bisnis AB 01, AB 04, AB 05a, AB 05b, AB 09a, AB 09b, AB 10 ): 
-
-- Tabel yang Diurus: `PERIODE_GAJI`, `GAJI`, dan `DETAIL_GAJI`. 
-
-- Fitur Backend (`model`, `repo`, `service`, `handler`): - Pembuatan periode gaji (mingguan Senin–Sabtu untuk harian, bulanan untuk pekerja bulanan). - Engine Hitung Gaji: Menghitung upah per jam (harian _÷_ 8, bulanan _÷_ 173), gaji pokok harian, gaji proporsional/prorata bulanan (berdasarkan hari kalender aktif), upah lembur progresif ( 1.5 _×_ jam pertama, 2 _×_ jam berikutnya), dan potongan keterlambatan ( >15 menit potong 1 jam upah). - Fitur Pembayaran Gaji (mencatat waktu bayar & mencegah bayar dua kali) dan Penutupan Periode (mengunci periode dan absensi setelah semua gaji pada periode tersebut lunas dibayar). 
-
-- Template HTML: Halaman daftar periode gaji, halaman rincian perhitungan gaji per periode, dan tampilan draf rincian gaji per tanggal (`DETAIL_GAJI`). 
-
-## 5. Adel Bin Faris Abdat — Modul Kasbon, Koreksi Antarperiode & Laporan/Slip 
-
-Bertanggung jawab atas pemotongan pinjaman pekerja, penanganan selisih/kesalahan setelah tutup periode, dan output laporan akhir (Aturan Bisnis AB 08, AB 11 ): 
-
-- Tabel yang Diurus: `KASBON`, `POTONGAN_KASBON`, dan `KOREKSI_GAJI`. 
-
-- Fitur Backend (`model`, `repo`, `service`, `handler`): - Pencatatan pengajuan kasbon pekerja, pelacakan saldo sisa, dan logika pemotongan kasbon otomatis saat hitung gaji (maksimal 30% dari gaji bruto dibulatkan ke bawah, memotong kasbon tertua lebih dulu yang tanggalnya tidak melewati akhir periode). - Fitur pencatatan Koreksi Gaji (menghubungkan gaji asal yang sudah dibayar ke gaji tujuan di periode berikutnya beserta alasan, nilai selisih, dan persetujuan pemilik). - Pembuatan halaman Slip Gaji Individual (siap cetak/print dari browser) dan Laporan Rekap Biaya Gaji & Lembur per Periode (dengan filter periode dan jenis pekerja). 
-
-- Template HTML: Halaman kelola kasbon, form & daftar koreksi gaji, halaman cetak slip gaji, dan dashboard rekap laporan. 
-
-# **Tabel Ringkasan Pembagian Tugas & Dokumentasi Laporan** 
-
-Karena tadi di akhir kelas ada yang bertanya soal laporan dan Pak Anggyi membolehkan penambahan Flowchart / Sequence Diagram , sekalian bagi tugas penulisan dokumen laporan akhirnya agar tidak menumpuk di kamu sendiri: 
-
-|Nama<br>Anggot<br>a|Fokus Modul Coding (Go + MySQL<br>+ HTML)|Tugas Laporan & Presentasi<br>(Pertemuan 15)|
-|---|---|---|
-|Naufal<br>(Ketua)|Setup Project, Schema SQL, Auth<br>(`bcrypt` + Session Cookie),<br>Middleware, Routing `main.go`|Flowchart/Sequence Diagram<br>Auth, penggabungan dokumen<br>laporan & penyusunan slide<br>presentasi|
-|Cahya|CRUD Pekerja (`harian`/`bulanan`)<br>& Riwayat Upah (`PEKERJA`,<br>`RIWAYAT_UPAH`)|<br>Flowchart/Sequence Diagram<br>Modul Pekerja & Riwayat Upah<br>+ Screenshot hasil|
-|Falih|Master Shift, Jadwal Shift, Input &<br>Validasi Absensi (`SHIFT`,<br>`JADWAL_SHIFT`, `ABSENSI`)|Flowchart/Sequence Diagram<br>Modul Shift & Absensi +<br>Screenshot hasil|
-|Daffa|Periode Gaji, Engine Hitung|Flowchart/Sequence Diagram|
-
-
-
-||Gaji/Lembur/Prorata, Tutup Period<br>(`PERIODE_GAJI`, `GAJI`,<br>`DETAIL_GAJI`)|e<br>Perhitungan Gaji & Penutupan<br>Periode + Screenshot hasil|
-|---|---|---|
-|Adel|Kasbon (Potongan 30%), Koreksi<br>Gaji, Slip Gaji & Rekap Laporan<br>(`KASBON`,<br>`POTONGAN_KASBON`,<br>`KOREKSI_GAJI`)|Flowchart/Sequence Diagram<br>Kasbon & Koreksi + Uji kasus<br>perhitungan (testing)|
-
-
-
-# **Urutan Pengerjaan (Timeline)** 
-
-1. Tahap 1 (Minggu Ini): Kamu menyelesaikan Setup Repo, `db/schema.sql`, dan Modul Auth berbasis `go-produk`. Begitu selesai, push ke GitHub agar Cahya, Falih, Daffa, dan Adel bisa langsung `git clone` dan mulai ngoding di struktur yang sudah jalan. 
-
-2. Tahap 2: Cahya (Pekerja & Upah) dan Falih (Shift & Absensi) menyelesaikan modul mereka lebih dulu karena modul Daffa (Hitung Gaji) membutuhkan data dari tabel mereka. Sambil menunggu, Daffa dan Adel sudah bisa membuat CRUD dasar untuk `PERIODE_GAJI` dan `KASBON`. 
-
-3. Tahap 3: Integrasi perhitungan gaji ( Daffa ) dengan potongan kasbon & koreksi ( Adel ), lalu pengujian keseluruhan alur dari tahap 1 sampai 6 sesuai tabel Alur Kerja Sistem di Bab 1.3 dokumen kalian. 
-
+1. Pastikan **MySQL / MariaDB** berjalan di `127.0.0.1:3306` dan database `konveksi_mitra_jaya` sudah diimpor dari `db/schema.sql`.
+2. Sesuaikan konfigurasi pada file `.env`:
+   ```env
+   ADDR=:8080
+   DB_DSN=root:@tcp(127.0.0.1:3306)/konveksi_mitra_jaya?parseTime=true&charset=utf8mb4&loc=Local
+   COOKIE_SECURE=false
+   ```
+3. Jalankan server web:
+   ```powershell
+   go run ./cmd/web
+   ```
+4. Buka `http://localhost:8080` di browser. Akun default yang otomatis dibuat saat tabel `pengguna` kosong:
+   - **Admin Penggajian:** `admin` / `password123`
+   - **Pemilik Konveksi:** `pemilik` / `password123`
+5. Menjalankan seluruh unit test (dan integration test MySQL dengan database uji terpisah `konveksi_test`):
+   ```powershell
+   go test -v ./...
+   ```

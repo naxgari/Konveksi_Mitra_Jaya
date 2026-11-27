@@ -1,0 +1,49 @@
+{{define "content"}}
+<div class="slip-page">
+  <div class="print-actions">
+    <a class="btn btn-light" href="/periode/{{.Slip.Periode.ID}}">Kembali ke Periode</a>
+    <a class="btn btn-light" href="/gaji/{{.Slip.Gaji.ID}}">Detail Gaji</a>
+    <button class="btn btn-light" type="button" onclick="window.print()">Cetak slip</button>
+    {{if and .Admin .Slip.BisaPotong}}<form method="post" action="/gaji/{{.Slip.Gaji.ID}}/hitung-komponen"><button class="btn" type="submit">Hitung ulang kasbon &amp; koreksi</button></form>{{end}}
+  </div>
+  <article class="slip-sheet">
+    <div class="slip-heading"><div><h1>SLIP GAJI</h1><p>Konveksi Mitra Jaya</p></div><div class="slip-meta"><strong>Gaji #{{.Slip.Gaji.ID}}</strong><span>{{.Slip.Periode.JenisPeriode}} · {{tgl_indo .Slip.Periode.TanggalAwal}} – {{tgl_indo .Slip.Periode.TanggalAkhir}}</span><span>Status: {{.Slip.Gaji.StatusBayar}}</span>{{if not .Slip.Gaji.DibayarPada.IsZero}}<span>Dibayar: {{tgl_indo .Slip.Gaji.DibayarPada}}</span>{{end}}</div></div>
+    <div class="employee"><div><small>PEKERJA</small><strong>{{.Slip.Pekerja.Nama}}</strong></div><div><small>JENIS PEKERJA</small><strong>{{.Slip.Pekerja.Jenis}}</strong></div><div><small>JABATAN</small><strong>{{.Slip.Pekerja.Jabatan}}</strong></div></div>
+    <h2>Rincian harian</h2>
+    <div class="table-scroll"><table class="module-table"><thead><tr><th>Tanggal</th><th>Shift</th><th>Masuk</th><th>Keluar</th><th>Pokok</th><th>Telat</th><th>Lembur (jam)</th><th>Nilai lembur</th><th>Potongan telat</th></tr></thead><tbody>
+      {{range .Slip.Detail}}<tr><td>{{tgl_indo .Tanggal}}</td><td>{{if .NamaShift}}{{.NamaShift}}{{else}}—{{end}}</td><td>{{.JamMasuk}}</td><td>{{.JamKeluar}}</td><td>{{rupiah_float .NilaiPokok}}</td><td>{{.MenitTelat}} mnt</td><td>{{printf "%.2f" .JamLembur}}</td><td>{{rupiah_float .NilaiLembur}}</td><td>{{rupiah_float .PotonganTelat}}</td></tr>{{else}}<tr><td colspan="9">Tidak ada rincian harian.</td></tr>{{end}}
+    </tbody></table></div>
+    <div class="slip-bottom">
+      <section><h2>Potongan kasbon</h2><div class="table-scroll"><table class="module-table"><thead><tr><th>Tanggal kasbon</th><th>Keterangan</th><th>Potongan</th></tr></thead><tbody>{{range .Slip.PotonganKasbon}}<tr><td>{{tgl_indo .TanggalKasbon}}</td><td>{{.Keterangan}}</td><td>{{rupiah_float .Jumlah}}</td></tr>{{else}}<tr><td colspan="3">Tidak ada potongan kasbon.</td></tr>{{end}}</tbody></table></div></section>
+      <section><h2>Koreksi diterapkan</h2><div class="table-scroll"><table class="module-table"><thead><tr><th>Tanggal</th><th>Alasan</th><th>Selisih</th></tr></thead><tbody>{{range .Slip.Koreksi}}<tr><td>{{tgl_indo .Tanggal}}</td><td>{{.Alasan}}</td><td>{{rupiah_float .NilaiSelisih}}</td></tr>{{else}}<tr><td colspan="3">Tidak ada koreksi.</td></tr>{{end}}</tbody></table></div></section>
+      <section class="totals"><div><span>Gaji pokok</span><strong>{{rupiah_float .Slip.Gaji.GajiPokok}}</strong></div><div><span>Total lembur</span><strong>{{rupiah_float .Slip.Gaji.TotalLembur}}</strong></div><div><span>Gaji bruto</span><strong>{{rupiah_float .Slip.Gaji.GajiBruto}}</strong></div><div><span>Potongan keterlambatan</span><strong>− {{rupiah_float .Slip.Gaji.PotonganTelat}}</strong></div><div><span>Potongan kasbon</span><strong>− {{rupiah_float .Slip.Gaji.TotalPotonganKasbon}}</strong></div><div><span>Koreksi gaji</span><strong>{{rupiah_float .Slip.Gaji.TotalKoreksi}}</strong></div><div class="net"><span>GAJI BERSIH</span><strong>{{rupiah_float .Slip.Gaji.GajiBersih}}</strong></div></section>
+    </div>
+    {{if and .Admin .Slip.BisaPotong}}<p class="notice">Gaji ini belum dibayar. Potongan kasbon FIFO (maksimal 30% gaji bruto) dan koreksi disetujui diterapkan secara otomatis saat hitung draf dan difinalisasi saat pembayaran.</p>{{end}}
+  </article>
+</div>
+<style>
+.slip-page{max-width:1180px;margin:auto;width:100%}
+.print-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.print-actions form{margin:0}
+.slip-sheet{background:#fff;border:1px solid #dce2e9;border-radius:8px;padding:32px;overflow:hidden}
+.slip-heading{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid #c9a227;padding-bottom:18px;margin-bottom:18px}
+.slip-heading h1{font-size:24px;margin:0}
+.slip-heading p{margin:4px 0}
+.slip-meta{display:grid;text-align:right;gap:2px}
+.employee{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:14px 0 22px}
+.employee div{display:grid;min-width:0}
+.employee small{color:#64748b;font-size:11px}
+.slip-sheet h2{margin-top:20px;margin-bottom:10px;font-size:16px}
+.slip-sheet .table-scroll{max-width:100%}
+.slip-bottom{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px 24px;align-items:start;margin-top:8px}
+.slip-bottom>section{min-width:0}
+.slip-bottom .module-table{min-width:0;width:100%}
+.slip-bottom .module-table th,.slip-bottom .module-table td{white-space:normal;padding:10px 12px;height:auto}
+.totals{grid-column:2;min-width:0;display:grid;gap:8px;margin-top:8px;padding:16px 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px}
+.totals div{display:flex;justify-content:space-between;align-items:baseline;gap:16px;border-bottom:1px solid #e2e8f0;padding:6px 0}
+.totals div strong{white-space:nowrap;text-align:right}
+.totals .net{border-top:2px solid #1f2a3a;border-bottom:0;font-size:18px;padding-top:12px;margin-top:4px}
+@media print{body{background:#fff!important}header,aside,footer,.print-actions{display:none!important}main{margin:0!important;padding:0!important;min-height:auto!important}.slip-sheet{border:0;border-radius:0;padding:0;overflow:visible}.table-scroll{overflow:visible}.module-table{font-size:10px}.totals{background:#fff;border:1px solid #cbd5e1}.notice{display:none}}
+@media(max-width:900px){.slip-sheet{padding:16px}.slip-heading{display:block}.slip-meta{text-align:left;margin-top:10px}.employee{grid-template-columns:1fr}.slip-bottom{grid-template-columns:minmax(0,1fr)}.totals{grid-column:1}}
+</style>
+{{end}}

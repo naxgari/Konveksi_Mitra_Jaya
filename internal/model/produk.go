@@ -1,11 +1,6 @@
 package model
 
-import (
-	"errors"
-	"time"
-)
-
-var ErrNotFound = errors.New("data tidak ditemukan")
+import "time"
 
 type Produk struct {
 	ID        int

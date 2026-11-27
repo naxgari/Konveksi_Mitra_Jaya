@@ -127,6 +127,58 @@ func (s *AbsensiService) JadwalBuat(ctx context.Context, v model.JadwalShift) (i
 	})
 	return id, errorAturan(e)
 }
+
+// JadwalBuatRentang membuat jadwal shift untuk satu pekerja pada rentang tanggal [mulai..akhir] dalam satu transaksi.
+func (s *AbsensiService) JadwalBuatRentang(
+	ctx context.Context,
+	idPekerja, idShift int,
+	mulai, akhir time.Time,
+	lewatiMinggu bool,
+) (int, error) {
+	if idPekerja <= 0 || idShift <= 0 || mulai.IsZero() || akhir.IsZero() {
+		return 0, &ValidasiError{"Pekerja, shift, dan rentang tanggal wajib diisi"}
+	}
+	awalStr := mulai.Format("2006-01-02")
+	akhirStr := akhir.Format("2006-01-02")
+	if akhirStr < awalStr {
+		return 0, &ValidasiError{"Tanggal akhir tidak boleh sebelum tanggal mulai"}
+	}
+	var tanggalList []time.Time
+	for d := mulai; d.Format("2006-01-02") <= akhirStr; d = d.AddDate(0, 0, 1) {
+		if len(tanggalList) >= 31 {
+			return 0, &ValidasiError{"Rentang pembuatan jadwal sekaligus maksimal 31 hari"}
+		}
+		if lewatiMinggu && d.Weekday() == time.Sunday {
+			continue
+		}
+		tanggalList = append(tanggalList, d)
+	}
+	if len(tanggalList) == 0 {
+		return 0, &ValidasiError{"Tidak ada hari kerja pada rentang tanggal yang dipilih"}
+	}
+	err := s.Repo.Transaksi(ctx, func(tx *repository.AbsensiTx) error {
+		if _, e := tx.Shift(ctx, idShift); e != nil {
+			return e
+		}
+		for _, tgl := range tanggalList {
+			if e := periksaPekerja(ctx, tx, idPekerja, tgl); e != nil {
+				return e
+			}
+			if _, e := tx.TambahJadwal(ctx, model.JadwalShift{
+				IDPekerja: idPekerja,
+				IDShift:   idShift,
+				Tanggal:   tgl,
+			}); e != nil {
+				return e
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, errorAturan(err)
+	}
+	return len(tanggalList), nil
+}
 func (s *AbsensiService) JadwalUbah(ctx context.Context, v model.JadwalShift) error {
 	if e := validasiJadwal(v); e != nil {
 		return e
@@ -215,6 +267,78 @@ func (s *AbsensiService) AbsensiSimpan(ctx context.Context, a model.Absensi) err
 		}
 		return tx.SimpanAbsensi(ctx, a)
 	})
+}
+
+func simpanHadirNormalTx(ctx context.Context, tx *repository.AbsensiTx, j model.JadwalShift) error {
+	if e := periksaPekerja(ctx, tx, j.IDPekerja, j.Tanggal); e != nil {
+		return e
+	}
+	tgl := j.Tanggal.Format("2006-01-02")
+	masuk, e := time.ParseInLocation("2006-01-02 15:04", tgl+" "+j.JamMulai, time.Local)
+	if e != nil {
+		return e
+	}
+	keluar, e := time.ParseInLocation("2006-01-02 15:04", tgl+" "+j.JamSelesai, time.Local)
+	if e != nil {
+		return e
+	}
+	a := model.Absensi{
+		IDJadwal:  j.ID,
+		Status:    "hadir",
+		JamMasuk:  &masuk,
+		JamKeluar: &keluar,
+	}
+	if e := hitungAbsensi(&a, j); e != nil {
+		return e
+	}
+	return tx.SimpanAbsensi(ctx, a)
+}
+
+// AbsensiHadirNormal mencatat kehadiran tepat waktu sesuai jam mulai & selesai shift untuk satu jadwal (AB 03).
+func (s *AbsensiService) AbsensiHadirNormal(ctx context.Context, idJadwal int) error {
+	if idJadwal <= 0 {
+		return &ValidasiError{"ID jadwal tidak valid"}
+	}
+	return errorAturan(s.Repo.Transaksi(ctx, func(tx *repository.AbsensiTx) error {
+		j, e := tx.Jadwal(ctx, idJadwal)
+		if e != nil {
+			return e
+		}
+		return simpanHadirNormalTx(ctx, tx, j)
+	}))
+}
+
+// AbsensiHadirNormalMassal mencatat hadir tepat waktu sesuai shift bagi seluruh jadwal yang belum dicatat (tidak menimpa catatan yang sudah ada).
+func (s *AbsensiService) AbsensiHadirNormalMassal(ctx context.Context, ids []int) (int, error) {
+	if len(ids) == 0 {
+		return 0, &ValidasiError{"Tidak ada jadwal belum dicatat yang dipilih"}
+	}
+	jumlah := 0
+	err := s.Repo.Transaksi(ctx, func(tx *repository.AbsensiTx) error {
+		seen := make(map[int]bool, len(ids))
+		for _, id := range ids {
+			if id <= 0 || seen[id] {
+				continue
+			}
+			seen[id] = true
+			j, e := tx.Jadwal(ctx, id)
+			if e != nil {
+				return e
+			}
+			if j.Absensi != nil {
+				continue
+			}
+			if e := simpanHadirNormalTx(ctx, tx, j); e != nil {
+				return e
+			}
+			jumlah++
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, errorAturan(err)
+	}
+	return jumlah, nil
 }
 func errorAturan(err error) error {
 	var e *repository.AturanError

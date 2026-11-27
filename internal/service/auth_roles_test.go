@@ -10,7 +10,7 @@ func TestPeranSesuaiRancangan(t *testing.T) {
 		role    model.PeranPengguna
 		allowed bool
 	}{
-		{model.PeranAdmin, true}, {model.PeranPemilik, true}, {model.PeranSupervisor, false},
+		{model.PeranAdmin, true}, {model.PeranPemilik, true}, {model.PeranPengguna("supervisor"), false},
 	} {
 		if got := peranValid(tc.role); got != tc.allowed {
 			t.Errorf("peran %q: got %v, want %v", tc.role, got, tc.allowed)
